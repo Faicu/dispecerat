@@ -1,0 +1,22 @@
+@import "tailwindcss";
+
+@layer utilities {
+  @keyframes rain {
+    0% { background-position: 0% 0%; }
+    100% { background-position: 20% 100%; }
+  }
+  @keyframes snow {
+    0% { background-position: 0% 0%; }
+    100% { background-position: 10% 100%; }
+  }
+  .scanlines {
+    background: linear-gradient(
+      to bottom,
+      rgba(255,255,255,0),
+      rgba(255,255,255,0) 50%,
+      rgba(0,0,0,0.1) 50%,
+      rgba(0,0,0,0.1)
+    );
+    background-size: 100% 4px;
+  }
+}
