@@ -118,7 +118,7 @@ policeStations.forEach((station, i) => {
   const loc = { lat: station.location.lat + (Math.random() - 0.5) * 0.005, lng: station.location.lng + (Math.random() - 0.5) * 0.005 };
   gameState.units[`u${unitIdCounter++}`] = {
     id: `u${unitIdCounter - 1}`,
-    name: `P-0${i + 1} (${station.name.toUpperCase()})`,
+    name: `POL-${i + 1}`,
     type: 'police',
     state: 'idle',
     location: loc,
@@ -131,10 +131,10 @@ policeStations.forEach((station, i) => {
 for (let i = 0; i < 8; i++) {
   gameState.units[`u${unitIdCounter++}`] = {
     id: `u${unitIdCounter - 1}`,
-    name: `F-${i + 1 < 10 ? '0' : ''}${i + 1} (ISU)`,
+    name: `ISU-${i + 1}`,
     type: 'fire',
     state: 'idle',
-    location: fireStations[i % fireStations.length].location,
+    location: { ...fireStations[i % fireStations.length].location },
     targetIncidentId: null,
     fuel: 100,
   };
@@ -142,10 +142,10 @@ for (let i = 0; i < 8; i++) {
 for (let i = 0; i < 10; i++) {
   gameState.units[`u${unitIdCounter++}`] = {
     id: `u${unitIdCounter - 1}`,
-    name: `M-${i + 1 < 10 ? '0' : ''}${i + 1} (SMURD / AMB)`,
+    name: `AMB-${i + 1}`,
     type: 'ambulance',
     state: 'idle',
-    location: hospitals[i % hospitals.length].location,
+    location: { ...hospitals[i % hospitals.length].location },
     targetIncidentId: null,
     fuel: 100,
   };
@@ -153,7 +153,7 @@ for (let i = 0; i < 10; i++) {
 for (let i = 0; i < 5; i++) {
   gameState.units[`u${unitIdCounter++}`] = {
     id: `u${unitIdCounter - 1}`,
-    name: `J-0${i + 1} (JANDARMERIA)`,
+    name: `JAN-${i + 1}`,
     type: 'gendarmerie',
     state: 'idle',
     location: getRandomLocation(),
@@ -164,7 +164,7 @@ for (let i = 0; i < 5; i++) {
 for (let i = 0; i < 3; i++) {
   gameState.units[`u${unitIdCounter++}`] = {
     id: `u${unitIdCounter - 1}`,
-    name: `S-0${i + 1} (SIAS)`,
+    name: `SAS-${i + 1}`,
     type: 'swat',
     state: 'idle',
     location: getRandomLocation(),
@@ -175,10 +175,10 @@ for (let i = 0; i < 3; i++) {
 for (let i = 0; i < 2; i++) {
   gameState.units[`u${unitIdCounter++}`] = {
     id: `u${unitIdCounter - 1}`,
-    name: `H-0${i + 1} (IGAV)`,
+    name: `IGAV-${i + 1}`,
     type: 'helicopter',
     state: 'idle',
-    location: hospitals[0].location, // Heliport
+    location: { ...hospitals[0].location }, // Heliport
     targetIncidentId: null,
     fuel: 100,
   };
@@ -284,7 +284,7 @@ const moveUnitTowards = (unit: Unit, target: Location) => {
         assignedUnits: [],
         createdAt: Date.now(),
         reward: 5000,
-        severity: 3
+        severity: 4
      };
      addLog(`🚨 ACCIDENT! Unitatea ${unit.name} a suferit un accident din cauza vremii!`, 'error');
      unit.state = 'idle';
@@ -845,7 +845,8 @@ async function startServer() {
         u.fuel = 100;
         u.targetIncidentId = null;
         u.route = undefined;
-        const station = gameState.stations.find(s => s.id === u.targetStationId);
+        const allBases = [...gameState.stations, ...gameState.hospitals, ...gameState.fireStations];
+        const station = allBases.find(s => s.id === u.targetStationId);
         if (station) {
            u.location = { ...station.location };
         }
@@ -1080,24 +1081,41 @@ async function startServer() {
     };
     
     const names: Record<UnitType, string> = {
-      police: 'P',
-      ambulance: 'M',
-      fire: 'F',
-      gendarmerie: 'J',
-      swat: 'S',
-      helicopter: 'H',
+      police: 'POL',
+      ambulance: 'AMB',
+      fire: 'ISU',
+      gendarmerie: 'JAN',
+      swat: 'SAS',
+      helicopter: 'IGAV',
     };
 
     socket.on("purchaseUnit", ({ type }: { type: UnitType }) => {
       if (prices[type] && gameState.budget >= prices[type]) {
         gameState.budget -= prices[type];
         const id = `u${unitIdCounter++}`;
+        
+        let maxNum = 0;
+        for (const u of Object.values(gameState.units)) {
+          if (u.type === type) {
+            const match = u.name.match(new RegExp(`^${names[type]}-(\\d+)`));
+            if (match) {
+              const num = parseInt(match[1], 10);
+              if (num > maxNum) maxNum = num;
+            }
+          }
+        }
+        const nextNum = maxNum + 1;
+
+        let spawnLoc = policeStations[0].location;
+        if (type === 'ambulance' || type === 'helicopter') spawnLoc = hospitals[0].location;
+        if (type === 'fire') spawnLoc = fireStations[0].location;
+
         gameState.units[id] = {
           id: id,
-          name: `${names[type]}-${Math.floor(Math.random() * 90 + 10)} (NOU)`,
+          name: `${names[type]}-${nextNum}`,
           type: type as UnitType,
           state: 'idle',
-          location: getRandomLocation(),
+          location: { ...spawnLoc },
           targetIncidentId: null,
           fuel: 100,
         };

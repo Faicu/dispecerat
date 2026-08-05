@@ -121,10 +121,12 @@ export const INCIDENT_ICON_SVG: Record<string, string> = {
   rescue:    '<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="currentColor" stroke="none"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8zm3.88-11.71L14 10.16V8h-4v2.16l-1.88-1.88-1.41 1.41L8.58 12l-1.88 1.88 1.41 1.41L10 13.42V16h4v-2.58l1.88 1.88 1.41-1.41L15.42 12l1.87-1.87-1.41-1.42z"/></svg>',
 };
 
-export const SEVERITY_COLORS: Record<1 | 2 | 3, { hex: string; shadow: string }> = {
+export const SEVERITY_COLORS: Record<number, { hex: string; shadow: string }> = {
   1: { hex: '#3b82f6', shadow: '0 0 10px rgba(59,130,246,0.6)' },
   2: { hex: '#eab308', shadow: '0 0 15px rgba(234,179,8,0.8)' },
-  3: { hex: '#dc2626', shadow: '0 0 20px rgba(220,38,38,1)' },
+  3: { hex: '#f97316', shadow: '0 0 15px rgba(249,115,22,0.8)' },
+  4: { hex: '#ef4444', shadow: '0 0 20px rgba(239,68,68,1)' },
+  5: { hex: '#a855f7', shadow: '0 0 25px rgba(168,85,247,1)' },
 };
 
 export const RESOLVED_COLOR = { hex: '#10b981', shadow: '0 0 20px rgba(16,185,129,0.8)' };

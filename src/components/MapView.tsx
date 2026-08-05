@@ -41,11 +41,11 @@ const getUnitIcon = (type: UnitType, id: string, state: string, isSelected: bool
   });
 };
 
-const getIncidentIcon = (type: IncidentType, isSelected: boolean, severity: 1 | 2 | 3 = 1, resolved: boolean = false) => {
+const getIncidentIcon = (type: IncidentType, isSelected: boolean, severity: number = 1, resolved: boolean = false) => {
   const { hex: color, shadow } = resolved ? RESOLVED_COLOR : SEVERITY_COLORS[severity];
 
   const size = isSelected ? 48 : (32 + severity * 4);
-  const pulse = (isSelected || severity === 3 || resolved) ? 'animate-ping' : '';
+  const pulse = (isSelected || severity >= 4 || resolved) ? 'animate-ping' : '';
 
   const iconSvg = resolved ? INCIDENT_ICON_SVG.resolved : (INCIDENT_ICON_SVG[type] ?? INCIDENT_ICON_SVG.default);
 
@@ -54,11 +54,11 @@ const getIncidentIcon = (type: IncidentType, isSelected: boolean, severity: 1 | 
     className: 'custom-icon',
     html: `
       <div class="relative flex items-center justify-center cursor-pointer ${isSelected ? 'scale-110 z-40' : ''}" style="width:${size}px;height:${size}px;">
-        ${(isSelected || severity === 3) && !resolved ? `<div class="absolute inset-0 ${pulse}" style="background-color:${color};opacity:0.2;transform:rotate(45deg);border-radius:2px;"></div>` : ''}
+        ${(isSelected || severity >= 4) && !resolved ? `<div class="absolute inset-0 ${pulse}" style="background-color:${color};opacity:0.2;transform:rotate(45deg);border-radius:2px;"></div>` : ''}
         <div class="flex items-center justify-center text-white border-2 border-white" style="width:${sqSize}px;height:${sqSize}px;background-color:${color};box-shadow:${shadow};transform:rotate(45deg);border-radius:2px;">
           <div style="transform:rotate(-45deg)">${iconSvg}</div>
         </div>
-        ${(severity === 3 && !resolved) ? `<div class="absolute -top-1 -right-1 w-3 h-3 bg-red-500 rounded-full animate-pulse border border-white" style="border-width:1px"></div>` : ''}
+        ${(severity >= 4 && !resolved) ? `<div class="absolute -top-1 -right-1 w-3 h-3 ${severity === 5 ? 'bg-purple-500' : 'bg-red-500'} rounded-full animate-pulse border border-white" style="border-width:1px"></div>` : ''}
       </div>
     `,
     iconSize: [size, size],
@@ -153,17 +153,23 @@ function UnitMarker({ unit, isSelected, onSelect, gameState }: {
         />
       )}
       {unit.targetStationId && (!unit.route || unit.route.length === 0) && (
-        <Polyline
-          positions={[
-            [unit.location.lat, unit.location.lng],
-            [gameState.stations.find(s => s.id === unit.targetStationId)?.location.lat || unit.location.lat,
-             gameState.stations.find(s => s.id === unit.targetStationId)?.location.lng || unit.location.lng]
-          ]}
-          color={lineColor}
-          dashArray="4 8"
-          weight={2}
-          opacity={0.6}
-        />
+        (() => {
+          const allBases = [...gameState.stations, ...gameState.hospitals, ...gameState.fireStations];
+          const targetBase = allBases.find(s => s.id === unit.targetStationId);
+          return (
+            <Polyline
+              positions={[
+                [unit.location.lat, unit.location.lng],
+                [targetBase?.location.lat || unit.location.lat,
+                 targetBase?.location.lng || unit.location.lng]
+              ]}
+              color={lineColor}
+              dashArray="4 8"
+              weight={2}
+              opacity={0.6}
+            />
+          );
+        })()
       )}
     </Marker>
   );
@@ -193,7 +199,7 @@ function MiniMap({ gameState }: { gameState: GameState }) {
       if (inc.resolved) return;
       ctx.beginPath();
       ctx.arc(toX(inc.location.lng), toY(inc.location.lat), 3, 0, Math.PI * 2);
-      ctx.fillStyle = inc.severity === 3 ? '#ef4444' : inc.severity === 2 ? '#f97316' : '#eab308';
+      ctx.fillStyle = inc.severity === 5 ? '#a855f7' : inc.severity === 4 ? '#ef4444' : inc.severity === 3 ? '#f97316' : inc.severity === 2 ? '#eab308' : '#3b82f6';
       ctx.fill();
     });
 

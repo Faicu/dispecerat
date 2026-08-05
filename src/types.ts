@@ -60,7 +60,7 @@ export interface Incident {
   firstResponseAt?: number;
   primaryOperator?: string;
   reward: number;
-  severity: 1 | 2 | 3;
+  severity: number;
   escalated?: boolean;
   complication?: {
     message: string;

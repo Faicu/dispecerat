@@ -29,6 +29,9 @@ const EMPTY_GAME_STATE: GameState = {
   fireStations: [],
   resolvedCountTotal: 0,
   resolvedCountPerOperator: {},
+  incidentMultiplier: 1,
+  wavePhase: 'calm',
+  waveTimer: 0,
   incidentRate: 1,
   suggestions: [],
 };
@@ -68,7 +71,7 @@ export default function App() {
          const newIncidentId = Object.keys(newState.incidents || {}).find(id => !Object.keys(gameState.incidents || {}).includes(id));
          if (newIncidentId) {
            const inc = newState.incidents[newIncidentId];
-           if (inc.severity === 3) {
+           if (inc.severity >= 4) {
              playSiren();
              speak(`Atenție, incident COD 3 raportat: ${inc.name}`);
              addToast(`🚨 COD 3: ${inc.name}`, 'cod3');

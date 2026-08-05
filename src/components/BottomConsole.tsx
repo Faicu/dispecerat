@@ -62,7 +62,7 @@ export default function BottomConsole({ gameState, selectedIncidentId, selectedU
       <div className="h-auto md:h-40 border-t border-slate-800 bg-slate-900/90 p-4 flex flex-col md:flex-row gap-4 md:gap-6 z-20 relative">
         <div className="w-full md:w-1/3 flex flex-col gap-2">
           <div className="flex items-center gap-2">
-            <span className={`w-2 h-2 ${UNIT_THEME[selectedUnit.type].dot}`}></span>
+            <span className="w-2 h-2 rounded-full bg-emerald-500"></span>
             <span className="text-xs font-bold uppercase tracking-widest text-white">Unit {selectedUnit.name}</span>
           </div>
           <div className="bg-black/40 p-3 rounded border border-slate-800 flex-1 flex flex-col">
@@ -119,11 +119,11 @@ export default function BottomConsole({ gameState, selectedIncidentId, selectedU
       <div className="w-full md:w-1/2 flex flex-col gap-2 shrink-0">
         <div className="flex items-center gap-2 justify-between">
           <div className="flex items-center gap-2">
-            <span className={`w-2 h-2 ${incident.severity === 3 ? 'bg-red-500 animate-pulse' : incident.severity === 2 ? 'bg-yellow-500' : 'bg-blue-500'}`}></span>
+            <span className={`w-2 h-2 rounded-full ${incident.severity === 5 ? 'bg-purple-500 animate-pulse' : incident.severity === 4 ? 'bg-red-500 animate-pulse' : incident.severity === 3 ? 'bg-orange-500' : incident.severity === 2 ? 'bg-yellow-500' : 'bg-blue-500'}`}></span>
             <span className="text-xs font-bold uppercase tracking-widest text-white">Incident {incident.id}: {incident.name}</span>
           </div>
           <div className="flex gap-2">
-            <div className={`text-[10px] font-bold uppercase px-2 py-0.5 rounded ${incident.severity === 3 ? 'bg-red-500/20 text-red-400 border border-red-500/50' : incident.severity === 2 ? 'bg-yellow-500/20 text-yellow-400 border border-yellow-500/50' : 'bg-blue-500/20 text-blue-400 border border-blue-500/50'}`}>
+            <div className={`text-[10px] font-bold uppercase px-2 py-0.5 rounded ${incident.severity === 5 ? 'bg-purple-500/20 text-purple-400 border border-purple-500/50' : incident.severity === 4 ? 'bg-red-500/20 text-red-400 border border-red-500/50' : incident.severity === 3 ? 'bg-orange-500/20 text-orange-400 border border-orange-500/50' : incident.severity === 2 ? 'bg-yellow-500/20 text-yellow-400 border border-yellow-500/50' : 'bg-blue-500/20 text-blue-400 border border-blue-500/50'}`}>
               Prioritate: COD {incident.severity}
             </div>
             <div className="text-[10px] text-emerald-400 font-bold uppercase px-2 py-0.5 rounded bg-emerald-900/20 border border-emerald-800/50 flex items-center">

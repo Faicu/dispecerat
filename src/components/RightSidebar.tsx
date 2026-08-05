@@ -94,7 +94,7 @@ export default function RightSidebar({ gameState, selectedIncidentId, onSelectIn
                     <span className={`text-[9px] font-mono ${urgentTimer ? 'text-red-500 animate-pulse font-bold' : 'text-slate-500'}`}>
                       {timeStr}
                     </span>
-                    <span className={`text-[8px] px-1 py-0.5 rounded font-bold ${incident.severity === 3 ? 'bg-red-900/50 text-red-400' : incident.severity === 2 ? 'bg-yellow-900/50 text-yellow-400' : 'bg-slate-800 text-slate-500'}`}>
+                    <span className={`text-[8px] px-1 py-0.5 rounded font-bold ${incident.severity === 5 ? 'bg-purple-900/50 text-purple-400' : incident.severity === 4 ? 'bg-red-900/50 text-red-400' : incident.severity === 3 ? 'bg-orange-900/50 text-orange-400' : incident.severity === 2 ? 'bg-yellow-900/50 text-yellow-400' : 'bg-blue-900/50 text-blue-400'}`}>
                       C{incident.severity}
                     </span>
                   </div>
