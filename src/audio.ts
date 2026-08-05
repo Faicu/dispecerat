@@ -13,12 +13,20 @@ const getCtx = () => {
 };
 
 // Check if user has interacted with the page (required for audio to play)
+export let isMuted = false;
+export const setMuted = (muted: boolean) => {
+  isMuted = muted;
+  if (muted && window.speechSynthesis) {
+    window.speechSynthesis.cancel();
+  }
+};
+
 let hasInteracted = false;
 window.addEventListener('click', () => { hasInteracted = true; }, { once: true });
 window.addEventListener('keydown', () => { hasInteracted = true; }, { once: true });
 
 export const playClick = () => {
-  if (!hasInteracted) return;
+  if (!hasInteracted || isMuted) return;
   try {
     const ctx = getCtx();
     const osc = ctx.createOscillator();
@@ -40,7 +48,7 @@ export const playClick = () => {
 };
 
 export const playDispatch = () => {
-  if (!hasInteracted) return;
+  if (!hasInteracted || isMuted) return;
   try {
     const ctx = getCtx();
     const osc = ctx.createOscillator();
@@ -62,7 +70,7 @@ export const playDispatch = () => {
 };
 
 export const playIncident = () => {
-  if (!hasInteracted) return;
+  if (!hasInteracted || isMuted) return;
   try {
     const ctx = getCtx();
     const osc = ctx.createOscillator();
@@ -83,7 +91,7 @@ export const playIncident = () => {
 };
 
 export const playSuccess = () => {
-  if (!hasInteracted) return;
+  if (!hasInteracted || isMuted) return;
   try {
     const ctx = getCtx();
     const osc = ctx.createOscillator();
@@ -107,7 +115,7 @@ export const playSuccess = () => {
 };
 
 export const playError = () => {
-  if (!hasInteracted) return;
+  if (!hasInteracted || isMuted) return;
   try {
     const ctx = getCtx();
     const osc = ctx.createOscillator();
@@ -128,7 +136,7 @@ export const playError = () => {
 };
 
 export const playSiren = () => {
-  if (!hasInteracted) return;
+  if (!hasInteracted || isMuted) return;
   try {
     const ctx = getCtx();
     const osc = ctx.createOscillator();
@@ -152,7 +160,7 @@ export const playSiren = () => {
 };
 
 export const playRadioChatter = () => {
-  if (!hasInteracted) return;
+  if (!hasInteracted || isMuted) return;
   try {
     const ctx = getCtx();
     const bufferSize = ctx.sampleRate * 0.3; // 300ms
@@ -183,7 +191,7 @@ export const playRadioChatter = () => {
 };
 
 export const speak = (text: string) => {
-  if (!hasInteracted || !window.speechSynthesis) return;
+  if (!hasInteracted || !window.speechSynthesis || isMuted) return;
   // Cancel previous speech if still playing to keep it responsive
   window.speechSynthesis.cancel();
   

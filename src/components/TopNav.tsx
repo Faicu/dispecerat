@@ -3,7 +3,15 @@ import { GameState } from '../types';
 import { formatGameTime } from '../utils';
 import { WEATHER_LABELS } from '../constants';
 
+import { CloudRain, CloudLightning, Snowflake, Sun, Volume2, VolumeX } from 'lucide-react';
+import { isMuted as audioIsMuted, setMuted as audioSetMuted } from '../audio';
 export default function TopNav({ playerName, gameState }: { playerName: string, gameState: GameState }) {
+  const [isMuted, setIsMuted] = useState(audioIsMuted);
+  const toggleMute = () => {
+    const newVal = !isMuted;
+    setIsMuted(newVal);
+    audioSetMuted(newVal);
+  };
   const [realTime, setRealTime] = useState(new Date().toLocaleTimeString());
 
   useEffect(() => {
@@ -24,30 +32,25 @@ export default function TopNav({ playerName, gameState }: { playerName: string, 
         <div className="flex gap-4 text-xs font-mono">
           <div><span className="opacity-40">CITY:</span> BUCHAREST</div>
           <div><span className="opacity-40">OPERATOR:</span> {playerName.toUpperCase()}</div>
-          {gameState.operators.length > 1 && (
+          {gameState.operators.length > 0 && (
             <div className="flex items-center gap-2">
-               <span className="opacity-40">ACTIVE:</span> 
-               <div className="flex -space-x-1">
-                 {gameState.operators.filter(o => o !== playerName).slice(0, 3).map((op, i) => (
-                   <div key={i} title={op} className="w-4 h-4 rounded-full bg-slate-700 border border-slate-900 flex items-center justify-center text-[8px] font-bold uppercase text-white truncate">
+               <span className="opacity-40">TEAM:</span> 
+               <div className="flex gap-1">
+                 {gameState.operators.slice(0, 3).map((op, i) => (
+                   <div key={i} title={op} className={`w-5 h-5 rounded bg-slate-800 border ${op === playerName ? 'border-sky-500 text-sky-400' : 'border-slate-700 text-slate-400'} flex items-center justify-center text-[9px] font-bold uppercase`}>
                      {op.substring(0, 2)}
                    </div>
                  ))}
-                 {gameState.operators.length > 4 && (
-                   <div className="w-4 h-4 rounded-full bg-slate-800 border border-slate-900 flex items-center justify-center text-[8px] font-bold text-slate-400">
-                     +{gameState.operators.length - 4}
-                   </div>
+                 {gameState.operators.length > 3 && (
+                   <div className="text-[10px] text-slate-500">+{gameState.operators.length - 3}</div>
                  )}
                </div>
             </div>
           )}
           {gameState.rentedOperators && gameState.rentedOperators.length > 0 && (
-             <div className="flex items-center gap-2 bg-fuchsia-900/30 text-fuchsia-400 px-2 py-0.5 rounded border border-fuchsia-800/50" title={gameState.aiStatus}>
-               <div className="flex items-center gap-1.5 border-r border-fuchsia-800/50 pr-2">
-                 <span className="w-2 h-2 rounded-full bg-fuchsia-500 animate-pulse"></span>
-                 <span className="text-[10px] font-bold uppercase">AI Op ({Math.max(0, (gameState.rentedOperators[0].expiresAt - gameState.gameTime) / (1000 * 60 * 60)).toFixed(1)}h rămase)</span>
-               </div>
-               <span className="text-[9px] max-w-[200px] truncate">{gameState.aiStatus || 'Activ și în așteptare'}</span>
+             <div className="flex items-center gap-1.5 bg-fuchsia-900/30 text-fuchsia-400 px-2 py-1 rounded border border-fuchsia-800/50" title={gameState.aiStatus || 'Activ și în așteptare'}>
+               <span className="w-1.5 h-1.5 rounded-full bg-fuchsia-500 animate-pulse"></span>
+               <span className="text-[9px] font-bold uppercase tracking-wider">AI ON</span>
              </div>
           )}
         </div>
@@ -56,6 +59,10 @@ export default function TopNav({ playerName, gameState }: { playerName: string, 
       <div className="flex items-center gap-8">
         <div className="flex flex-col items-end border-r border-slate-700 pr-8">
           <div className="text-xs font-mono text-sky-400 capitalize">
+            {gameState.weather === 'clear' && <Sun size={12} className="inline mr-1" />}
+            {gameState.weather === 'rain' && <CloudRain size={12} className="inline mr-1" />}
+            {gameState.weather === 'storm' && <CloudLightning size={12} className="inline mr-1" />}
+            {gameState.weather === 'snow' && <Snowflake size={12} className="inline mr-1" />}
             {WEATHER_LABELS[gameState.weather] || gameState.weather}
           </div>
           <div className="text-[10px] opacity-40 uppercase tracking-widest">Vremea</div>
@@ -76,10 +83,12 @@ export default function TopNav({ playerName, gameState }: { playerName: string, 
           <div className="text-xs font-mono text-emerald-400">€{gameState.budget?.toLocaleString() || 0}</div>
           <div className="text-[10px] opacity-40 uppercase tracking-widest">Budget</div>
         </div>
+        <button onClick={toggleMute} className="text-slate-400 hover:text-white transition-colors">
+          {isMuted ? <VolumeX size={18} /> : <Volume2 size={18} />}
+        </button>
         <div className="flex items-center gap-4 bg-black/40 px-3 py-1 rounded border border-slate-700">
-          <div className="flex flex-col items-end">
-            <span className="text-lg font-mono text-sky-400 font-bold tracking-widest leading-tight">{formatGameTime(gameState.gameTime)}</span>
-            <span className="text-[9px] text-slate-500 font-mono tracking-widest leading-none">REAL: {realTime}</span>
+          <div className="flex flex-col items-end justify-center">
+            <span className="text-lg font-mono text-white font-bold tracking-widest leading-tight">{realTime}</span>
           </div>
         </div>
       </div>

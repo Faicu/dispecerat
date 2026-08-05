@@ -34,7 +34,7 @@ const gameState: GameState = savedGame ? savedGame.state : {
   incidents: {},
   budget: 150000,
   reputation: 100,
-  gameTime: new Date().setHours(8, 0, 0, 0), // Start at 08:00 AM
+  gameTime: Date.now(), // Start at 08:00 AM
   weather: 'clear',
   logs: [],
   operators: [],
@@ -45,6 +45,7 @@ const gameState: GameState = savedGame ? savedGame.state : {
   resolvedCountTotal: 0,
   resolvedCountPerOperator: {},
   incidentRate: 1,
+  suggestions: [],
 };
 
 // Stations/hospitals/fireStations lists are static config, always refresh them
@@ -253,6 +254,31 @@ const moveUnitTowards = (unit: Unit, target: Location) => {
   if (gameState.weather === 'rain') speedMult = 0.8;
   if (gameState.weather === 'snow') speedMult = 0.6;
   if (gameState.weather === 'storm') speedMult = 0.5;
+  
+  if (gameState.weather !== 'clear' && unit.state === 'moving' && Math.random() < 0.0001) {
+     const id = `inc-${Date.now()}`;
+     gameState.incidents[id] = {
+        id,
+        name: `Accident Rutier (Unitate ${unit.name})`,
+        type: 'medical',
+        location: { ...unit.location },
+        description: `Unitatea ${unit.name} a fost implicată într-un accident rutier din cauza condițiilor meteo nefavorabile!`,
+        imageUrl: 'https://images.unsplash.com/photo-1542282811-943ef1a647a5?auto=format&fit=crop&w=300&q=80',
+        resolved: false,
+        isResolving: false,
+        resolutionProgress: 0,
+        activities: ['Echipajul raportează un accident. Este necesară intervenția.'],
+        requiredUnits: ['ambulance', 'police'],
+        assignedUnits: [],
+        createdAt: Date.now(),
+        reward: 5000,
+        severity: 3
+     };
+     addLog(`🚨 ACCIDENT! Unitatea ${unit.name} a suferit un accident din cauza vremii!`, 'error');
+     unit.state = 'idle';
+     unit.route = [];
+     unit.targetIncidentId = null;
+  }
 
   if (unit.fuel <= 0) speedMult *= 0.2; // very slow if out of fuel
 
@@ -283,7 +309,7 @@ const tick = (io: Server) => {
   let stateChanged = false;
 
   // Time progresses: 1 tick = 6000ms in-game = 6 seconds in-game per tick (1 minute every 1 real second)
-  gameState.gameTime += 6000;
+  gameState.gameTime = Date.now();
   stateChanged = true;
 
   if (Math.random() < 0.005) { // chance to change weather
@@ -430,7 +456,9 @@ const tick = (io: Server) => {
   // Check incidents for resolution
   Object.values(gameState.incidents).forEach((incident) => {
     if (!incident.resolved) {
-      if (Date.now() - incident.createdAt > 180000 && !incident.isResolving) { // 3 minutes to resolve
+      const isAssigned = incident.assignedUnits && incident.assignedUnits.length > 0;
+      const timeLimit = isAssigned ? 300000 : 60000;
+      if (Date.now() - incident.createdAt > timeLimit && !incident.isResolving) { // 3 minutes to resolve
         // Expired
         gameState.reputation = Math.max(0, gameState.reputation - 5);
         incident.activities = ['Incidentul a expirat, apelanții nu au primit ajutor la timp!'];
@@ -492,7 +520,7 @@ const tick = (io: Server) => {
             stateChanged = true;
             
             // Random chance for complication
-            if (incident.resolutionProgress! > 40 && incident.resolutionProgress! < 60 && !incident.escalated && Math.random() < 0.25) {
+            if (incident.resolutionProgress! > 40 && incident.resolutionProgress! < 60 && !incident.escalated && Math.random() < 0.6) {
                incident.escalated = true;
                const randChoice = Math.random();
                if (randChoice < 0.33) {
@@ -617,15 +645,20 @@ const tick = (io: Server) => {
 
   // Handle rented operators expiration and AI dispatch
   const now = gameState.gameTime;
-  const initialLen = gameState.rentedOperators.length;
-  gameState.rentedOperators = gameState.rentedOperators.filter(op => op.expiresAt > now);
-  if (gameState.rentedOperators.length < initialLen) {
-    addLog('Un operator închiriat a expirat.', 'info');
-    stateChanged = true;
-  }
-
   if (gameState.rentedOperators.length > 0) {
     const aiOp = gameState.rentedOperators[0];
+    const timeSinceLastCharge = Date.now() - (aiOp.lastChargeTime || 0);
+    if (timeSinceLastCharge >= 60000) {
+        if (gameState.budget >= 3000) {
+            gameState.budget -= 3000;
+            aiOp.lastChargeTime = Date.now();
+            stateChanged = true;
+        } else {
+            gameState.rentedOperators = [];
+            addLog('Operatorul AI a fost dezactivat (fonduri insuficiente).', 'warning');
+            stateChanged = true;
+        }
+    }
     const timeSinceLastAction = Date.now() - (aiOp.lastActionTime || 0);
 
     if (timeSinceLastAction > 3000) {
@@ -794,13 +827,11 @@ async function startServer() {
     });
 
     socket.on("rentOperator", () => {
-      const COST = 15000;
-      if (gameState.budget >= COST && gameState.rentedOperators.length === 0) {
-        gameState.budget -= COST;
-        // 4 in-game hours duration (4 * 60 * 60 * 1000 ms)
-        const expiresAt = gameState.gameTime + (4 * 60 * 60 * 1000);
-        gameState.rentedOperators.push({ id: `op_${Date.now()}`, expiresAt, lastActionTime: 0 });
-        addLog('Ai închiriat un Operator AI pentru 4 ore (timp joc).', 'success');
+      const INITIAL_COST = 3000;
+      if (gameState.budget >= INITIAL_COST && gameState.rentedOperators.length === 0) {
+        gameState.budget -= INITIAL_COST;
+        gameState.rentedOperators.push({ id: `op_${Date.now()}`, expiresAt: Infinity, lastActionTime: 0, lastChargeTime: Date.now() });
+        addLog('Ai activat Operatorul AI (3000 RON / minut).', 'success');
         io.emit("stateUpdate", gameState);
       } else if (gameState.rentedOperators.length > 0) {
         addLog('Ai deja un Operator AI activ.', 'warning');

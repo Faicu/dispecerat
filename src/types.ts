@@ -85,7 +85,7 @@ export interface GameState {
   weather: WeatherType;
   logs: GameLog[];
   operators: string[];
-  rentedOperators: { id: string, expiresAt: number, lastActionTime?: number }[];
+  rentedOperators: { id: string, expiresAt: number, lastActionTime?: number, lastChargeTime?: number }[];
   stations: PoliceStation[];
   hospitals: Hospital[];
   fireStations: FireStation[];
@@ -93,6 +93,7 @@ export interface GameState {
   resolvedCountPerOperator: Record<string, number>;
   aiStatus?: string;
   incidentRate: number;
+  suggestions: string[];
 }
 
 export interface Player {

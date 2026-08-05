@@ -16,6 +16,9 @@ const getUnitStyles = (type: UnitType, isIdle: boolean) => (isIdle ? IDLE_STYLES
 
 export default function LeftSidebar({ gameState, onPurchase, onRentOperator, onFireOperator, onSetIncidentRate, onRefuelAll }: { gameState: GameState, onPurchase: (type: UnitType) => void, onRentOperator: () => void, onFireOperator: () => void, onSetIncidentRate: (rate: number) => void, onRefuelAll: () => void }) {
   const [activeTab, setActiveTab] = useState<'units' | 'logs'>('units');
+  const [expandedCategories, setExpandedCategories] = useState<string[]>(['police', 'fire', 'ambulance', 'gendarmerie', 'swat', 'helicopter']);
+  const [showPurchaseMenu, setShowPurchaseMenu] = useState(false);
+  const toggleCategory = (type: string) => setExpandedCategories(prev => prev.includes(type) ? prev.filter(c => c !== type) : [...prev, type]);
   const unitsList = Object.values(gameState.units || {});
 
   const groupedUnits: Record<UnitType, typeof unitsList> = {
@@ -45,6 +48,15 @@ export default function LeftSidebar({ gameState, onPurchase, onRentOperator, onF
       </div>
 
       <div className="flex-1 p-2 space-y-4 overflow-y-auto">
+        {gameState.suggestions && gameState.suggestions.length > 0 && (
+          <div className="space-y-1 mb-2">
+            {gameState.suggestions.map((s, i) => (
+              <div key={i} className="bg-orange-900/40 border border-orange-800/50 text-orange-400 text-[9px] p-2 rounded flex items-center gap-2 font-bold leading-tight animate-pulse">
+                {s}
+              </div>
+            ))}
+          </div>
+        )}
         {activeTab === 'units' ? (
           <>
             {UNIT_ORDER.map((type) => {
@@ -52,8 +64,11 @@ export default function LeftSidebar({ gameState, onPurchase, onRentOperator, onF
           if (units.length === 0) return null;
           return (
             <div key={type} className="space-y-2">
-              <div className="text-[9px] uppercase font-bold text-slate-500 border-b border-slate-800 pb-1">{UNIT_THEME[type].label} ({units.length})</div>
-              {units.map(unit => {
+              <div onClick={() => toggleCategory(type)} className="cursor-pointer text-[9px] uppercase font-bold text-slate-400 bg-slate-800/40 p-1.5 rounded flex justify-between items-center hover:bg-slate-800/80 transition-colors">
+                <span>{UNIT_THEME[type].label} ({units.filter(u => u.state === 'idle').length}/{units.length})</span>
+                <span>{expandedCategories.includes(type) ? '▲' : '▼'}</span>
+              </div>
+              {expandedCategories.includes(type) && units.map(unit => {
                 const isIdle = unit.state === 'idle';
                 const styles = getUnitStyles(unit.type, isIdle);
                 
@@ -125,22 +140,27 @@ export default function LeftSidebar({ gameState, onPurchase, onRentOperator, onF
         )}
       </div>
       <div className="p-2 bg-slate-800/50 border-t border-slate-800 shrink-0">
-         <div className="text-[10px] font-bold uppercase tracking-widest text-slate-500 mb-2">Purchase Units</div>
-         <div className="grid grid-cols-2 gap-1 text-[9px] uppercase font-bold text-center">
-            {(['police', 'ambulance', 'fire', 'gendarmerie', 'swat', 'helicopter'] as UnitType[]).map(type => {
-              const canAfford = gameState.budget >= UNIT_PRICES[type];
-              return (
-                <button
-                  key={type}
-                  onClick={() => onPurchase(type)}
-                  disabled={!canAfford}
-                  className={`border p-1 rounded transition-colors ${canAfford ? `bg-slate-800 border-slate-700 text-slate-300 ${UNIT_THEME[type].hoverClasses}` : 'bg-slate-900 border-slate-800 text-slate-600 cursor-not-allowed'}`}
-                >
-                  {UNIT_THEME[type].label.split(' ')[0]}<br/><span className={canAfford ? 'text-emerald-500' : 'text-slate-600'}>€{UNIT_PRICES[type] / 1000}k</span>
-                </button>
-              );
-            })}
-         </div>
+         
+         <button onClick={() => setShowPurchaseMenu(!showPurchaseMenu)} className="w-full bg-slate-800 border border-slate-700 hover:bg-slate-700 text-slate-300 p-2 rounded text-[10px] uppercase font-bold tracking-widest transition-colors">
+            {showPurchaseMenu ? 'Ascunde Magazin' : 'Magazin Unități'}
+         </button>
+         {showPurchaseMenu && (
+           <div className="mt-2 grid grid-cols-2 gap-1 text-[9px] uppercase font-bold text-center">
+              {(['police', 'ambulance', 'fire', 'gendarmerie', 'swat', 'helicopter'] as UnitType[]).map(type => {
+                const canAfford = gameState.budget >= UNIT_PRICES[type];
+                return (
+                  <button
+                    key={type}
+                    onClick={() => onPurchase(type)}
+                    disabled={!canAfford}
+                    className={`border p-1 rounded transition-colors ${canAfford ? `bg-slate-800 border-slate-700 text-slate-300 ${UNIT_THEME[type].hoverClasses}` : 'bg-slate-900 border-slate-800 text-slate-600 cursor-not-allowed'}`}
+                  >
+                    {UNIT_THEME[type].label.split(' ')[0]}<br/><span className={canAfford ? 'text-emerald-500' : 'text-slate-600'}>€{UNIT_PRICES[type] / 1000}k</span>
+                  </button>
+                );
+              })}
+           </div>
+         )}
          <div className="mt-2 pt-2 border-t border-slate-700/50">
             <div className="flex justify-between items-center mb-1">
               <span className="text-[9px] uppercase font-bold text-slate-500">Rată Incidente</span>
@@ -162,7 +182,7 @@ export default function LeftSidebar({ gameState, onPurchase, onRentOperator, onF
             ) : (
               <button onClick={onRentOperator} className="flex-1 bg-fuchsia-900/40 border border-fuchsia-800 hover:bg-fuchsia-800/60 hover:border-fuchsia-500 text-fuchsia-300 p-1.5 rounded transition-colors text-[10px] uppercase font-bold tracking-widest flex flex-col items-center justify-center">
                 <span>Operator AI</span>
-                <span className="text-emerald-500 text-[8px]">€{RENT_OPERATOR_COST / 1000}k/4h</span>
+                <span className="text-emerald-500 text-[8px]">€3k/min</span>
               </button>
             )}
             <button onClick={onRefuelAll} className="flex-1 bg-orange-900/40 border border-orange-800 hover:bg-orange-800/60 hover:border-orange-500 text-orange-300 p-1.5 rounded transition-colors text-[10px] uppercase font-bold tracking-widest flex flex-col items-center justify-center">

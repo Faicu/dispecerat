@@ -31,7 +31,8 @@ export default function RightSidebar({ gameState, selectedIncidentId, onSelectIn
             };
 
             const timeElapsed = now - incident.createdAt;
-            const timeRemaining = Math.max(0, INCIDENT_COUNTDOWN_MS - timeElapsed);
+            const countdownMs = incident.assignedUnits.length > 0 ? 300000 : 60000;
+            const timeRemaining = Math.max(0, countdownMs - timeElapsed);
             const mins = Math.floor(timeRemaining / 60000);
             const secs = Math.floor((timeRemaining % 60000) / 1000);
             const timeStr = incident.isResolving ? 'Soluționare...' : (incident.resolved ? 'Rezolvat' : `${mins}:${secs.toString().padStart(2, '0')} rămas`);
@@ -89,12 +90,15 @@ export default function RightSidebar({ gameState, selectedIncidentId, onSelectIn
                 )}
 
                 <div className="mt-2 flex justify-between items-center">
-                  <div className="flex gap-1">
+                  <div className="flex gap-1 flex-wrap w-full mt-2">
                     {incident.requiredUnits.map((req, idx) => {
                       const assigned = incident.assignedUnits.filter(uid => gameState.units[uid]?.type === req);
                       const isAssigned = assigned.length > idx;
                       return (
-                        <div key={idx} className={`w-3 h-3 rounded-sm border ${isAssigned ? 'bg-green-500 border-green-400' : 'bg-slate-800 border-slate-600'}`}></div>
+                        <div key={idx} className={`flex items-center gap-1 text-[9px] font-bold uppercase px-1.5 py-0.5 rounded border ${isAssigned ? 'bg-green-900/40 border-green-500 text-green-400' : 'bg-slate-800 border-slate-600 text-slate-400'}`}>
+                          <div className={`w-1.5 h-1.5 rounded-full ${isAssigned ? 'bg-green-500' : 'bg-slate-600'}`}></div>
+                          {req.substring(0, 3)}
+                        </div>
                       );
                     })}
                   </div>

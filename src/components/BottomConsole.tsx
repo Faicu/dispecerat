@@ -167,12 +167,12 @@ export default function BottomConsole({ gameState, selectedIncidentId, selectedU
 
       <div className="flex-1 flex flex-col gap-2">
         <span className="text-[10px] text-slate-500 uppercase font-bold tracking-tighter">Dispatch Console (Available Units)</span>
-        <div className="grid grid-cols-3 gap-2 flex-1 overflow-y-auto content-start pr-2">
+        <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-2 flex-1 overflow-y-auto content-start pr-2">
           {availableUnits.map(unit => (
             <button 
               key={unit.id}
               onClick={() => onDispatch(unit.id)}
-              className={`flex flex-col justify-start gap-1 ${unit.state === 'idle' ? 'bg-slate-800/80 border-slate-700 hover:bg-slate-700' : 'bg-orange-900/20 border-orange-800/50 hover:bg-orange-800/40'} border rounded text-[10px] text-slate-300 py-1.5 px-2 transition-colors shadow-sm truncate text-left`}
+              className={`flex flex-col justify-start gap-1 ${unit.state === 'idle' ? 'bg-slate-800/80 border-slate-600 hover:bg-slate-700' : 'bg-orange-900/40 border-orange-800/80 hover:bg-orange-800/60'} border-2 rounded text-xs text-white py-2 px-3 transition-colors shadow-sm truncate text-left`}
               title={unit.name}
             >
               <div className="flex items-center gap-1.5 w-full">

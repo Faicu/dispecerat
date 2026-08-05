@@ -29,6 +29,7 @@ const EMPTY_GAME_STATE: GameState = {
   resolvedCountTotal: 0,
   resolvedCountPerOperator: {},
   incidentRate: 1,
+  suggestions: [],
 };
 
 export default function App() {
