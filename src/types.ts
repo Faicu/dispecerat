@@ -63,8 +63,9 @@ export interface Incident {
   escalated?: boolean;
   complication?: {
     message: string;
-    actionLabel: string;
+    actionLabel?: string;
     resolved: boolean;
+    options?: { id: string; label: string; cost: number; resultMsg: string; repImpact?: number; }[];
   };
 }
 
@@ -84,7 +85,7 @@ export interface GameState {
   weather: WeatherType;
   logs: GameLog[];
   operators: string[];
-  rentedOperators: { id: string, expiresAt: number }[];
+  rentedOperators: { id: string, expiresAt: number, lastActionTime?: number }[];
   stations: PoliceStation[];
   hospitals: Hospital[];
   fireStations: FireStation[];

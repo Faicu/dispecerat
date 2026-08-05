@@ -22,7 +22,7 @@ const getUnitStyles = (type: UnitType, isIdle: boolean) => {
   }
 };
 
-export default function LeftSidebar({ gameState, onPurchase, onRentOperator, onSetIncidentRate, onRefuelAll }: { gameState: GameState, onPurchase: (type: UnitType) => void, onRentOperator: () => void, onSetIncidentRate: (rate: number) => void, onRefuelAll: () => void }) {
+export default function LeftSidebar({ gameState, onPurchase, onRentOperator, onFireOperator, onSetIncidentRate, onRefuelAll }: { gameState: GameState, onPurchase: (type: UnitType) => void, onRentOperator: () => void, onFireOperator: () => void, onSetIncidentRate: (rate: number) => void, onRefuelAll: () => void }) {
   const [activeTab, setActiveTab] = useState<'units' | 'logs'>('units');
   const unitsList = Object.values(gameState.units || {});
   
@@ -181,10 +181,17 @@ export default function LeftSidebar({ gameState, onPurchase, onRentOperator, onS
             </div>
          </div>
          <div className="mt-2 pt-2 border-t border-slate-700/50 flex gap-2">
-            <button onClick={onRentOperator} className="flex-1 bg-fuchsia-900/40 border border-fuchsia-800 hover:bg-fuchsia-800/60 hover:border-fuchsia-500 text-fuchsia-300 p-1.5 rounded transition-colors text-[10px] uppercase font-bold tracking-widest flex flex-col items-center justify-center">
-              <span>Operator AI</span>
-              <span className="text-emerald-500 text-[8px]">€15k/4h</span>
-            </button>
+            {(gameState.rentedOperators && gameState.rentedOperators.length > 0) ? (
+              <button onClick={onFireOperator} className="flex-1 bg-red-900/40 border border-red-800 hover:bg-red-800/60 hover:border-red-500 text-red-300 p-1.5 rounded transition-colors text-[10px] uppercase font-bold tracking-widest flex flex-col items-center justify-center">
+                <span>Concediază</span>
+                <span className="text-red-400 text-[8px]">Operator AI</span>
+              </button>
+            ) : (
+              <button onClick={onRentOperator} className="flex-1 bg-fuchsia-900/40 border border-fuchsia-800 hover:bg-fuchsia-800/60 hover:border-fuchsia-500 text-fuchsia-300 p-1.5 rounded transition-colors text-[10px] uppercase font-bold tracking-widest flex flex-col items-center justify-center">
+                <span>Operator AI</span>
+                <span className="text-emerald-500 text-[8px]">€15k/4h</span>
+              </button>
+            )}
             <button onClick={onRefuelAll} className="flex-1 bg-orange-900/40 border border-orange-800 hover:bg-orange-800/60 hover:border-orange-500 text-orange-300 p-1.5 rounded transition-colors text-[10px] uppercase font-bold tracking-widest flex flex-col items-center justify-center">
               <span>Realimentare Gen.</span>
               <span className="text-emerald-500 text-[8px]">€500/unit</span>

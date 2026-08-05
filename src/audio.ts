@@ -151,6 +151,37 @@ export const playSiren = () => {
   } catch (e) {}
 };
 
+export const playRadioChatter = () => {
+  if (!hasInteracted) return;
+  try {
+    const ctx = getCtx();
+    const bufferSize = ctx.sampleRate * 0.3; // 300ms
+    const buffer = ctx.createBuffer(1, bufferSize, ctx.sampleRate);
+    const data = buffer.getChannelData(0);
+    for (let i = 0; i < bufferSize; i++) {
+      data[i] = Math.random() * 2 - 1; // white noise
+    }
+    const noiseSource = ctx.createBufferSource();
+    noiseSource.buffer = buffer;
+    
+    // Bandpass filter for radio effect
+    const biquadFilter = ctx.createBiquadFilter();
+    biquadFilter.type = "bandpass";
+    biquadFilter.frequency.value = 1500;
+    biquadFilter.Q.value = 1.0;
+    
+    const gain = ctx.createGain();
+    gain.gain.setValueAtTime(0.01, ctx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.3);
+    
+    noiseSource.connect(biquadFilter);
+    biquadFilter.connect(gain);
+    gain.connect(ctx.destination);
+    
+    noiseSource.start();
+  } catch (e) {}
+};
+
 export const speak = (text: string) => {
   if (!hasInteracted || !window.speechSynthesis) return;
   // Cancel previous speech if still playing to keep it responsive

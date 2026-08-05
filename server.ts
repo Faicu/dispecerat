@@ -392,11 +392,24 @@ const tick = (io: Server) => {
         unit.activity = undefined;
       }
     } else if (unit.state === 'patrolling' && unit.patrolTarget) {
-      const reached = moveLocationTowards(unit.location, unit.patrolTarget, UNIT_SPEED * 0.5);
-      if (reached) {
-        unit.state = 'idle';
-        unit.patrolTarget = null;
-        unit.activity = undefined;
+      if (unit.route && unit.route.length > 0) {
+        const target = unit.route[0];
+        const reached = moveUnitTowards(unit, target);
+        if (reached) {
+          unit.route.shift();
+          if (unit.route.length === 0) {
+            unit.state = 'idle';
+            unit.patrolTarget = null;
+            unit.activity = undefined;
+          }
+        }
+      } else {
+        const reached = moveLocationTowards(unit.location, unit.patrolTarget, UNIT_SPEED * 0.5);
+        if (reached) {
+          unit.state = 'idle';
+          unit.patrolTarget = null;
+          unit.activity = undefined;
+        }
       }
       stateChanged = true;
     } else if (unit.state === 'transporting' && unit.targetStationId) {
@@ -408,6 +421,7 @@ const tick = (io: Server) => {
           if (unit.route.length === 0) {
              unit.state = 'idle';
              unit.targetStationId = null;
+             unit.fuel = 100;
           }
         }
         stateChanged = true;
@@ -419,6 +433,7 @@ const tick = (io: Server) => {
           if (reached) {
             unit.state = 'idle';
             unit.targetStationId = null;
+            unit.fuel = 100;
           }
           stateChanged = true;
         }
@@ -532,9 +547,10 @@ const tick = (io: Server) => {
             stateChanged = true;
             
             // Random chance for complication
-            if (incident.resolutionProgress! > 40 && incident.resolutionProgress! < 60 && !incident.escalated && Math.random() < 0.2) {
+            if (incident.resolutionProgress! > 40 && incident.resolutionProgress! < 60 && !incident.escalated && Math.random() < 0.25) {
                incident.escalated = true;
-               if (Math.random() < 0.5) {
+               const randChoice = Math.random();
+               if (randChoice < 0.33) {
                  const possibleBackup: UnitType[] = ['police', 'ambulance', 'fire'];
                  const extraType = possibleBackup[Math.floor(Math.random() * possibleBackup.length)];
                  incident.requiredUnits.push(extraType);
@@ -546,7 +562,7 @@ const tick = (io: Server) => {
                  incident.isResolving = false;
                  incident.activities.unshift(`Situația a escaladat! Mai e nevoie de 1 x ${extraType.toUpperCase()}.`);
                  addLog(`Escaladare la ${incident.name}: E nevoie de 1x ${extraType.toUpperCase()}`, 'warning');
-               } else {
+               } else if (randChoice < 0.66) {
                  incident.complication = {
                    message: 'Este necesară autorizarea dispeceratului pentru proceduri speciale.',
                    actionLabel: 'Aprobă Procedura (€1000)',
@@ -554,6 +570,17 @@ const tick = (io: Server) => {
                  };
                  incident.activities.unshift('Se așteaptă decizia dispeceratului...');
                  addLog(`Atenție! Este necesară decizia ta la ${incident.name}`, 'warning');
+               } else {
+                 incident.complication = {
+                   message: 'Decizie tactică necesară de la dispecerat. Ce ordin dăm unităților?',
+                   resolved: false,
+                   options: [
+                     { id: 'opt1', label: 'Abordare Precaută (-€500)', cost: 500, resultMsg: 'S-a adoptat o poziție defensivă. Victimele sunt în siguranță.', repImpact: 1 },
+                     { id: 'opt2', label: 'Asalt în Forță (+€2000, Risc)', cost: 0, resultMsg: 'Intervenție brutală. Am recuperat bunuri, dar opinia publică e critică.', repImpact: -3 }
+                   ]
+                 };
+                 incident.activities.unshift('Așteptăm ordin tactic...');
+                 addLog(`Atenție! Decizie tactică necesară la ${incident.name}`, 'warning');
                }
             }
 
@@ -653,55 +680,62 @@ const tick = (io: Server) => {
   }
 
   if (gameState.rentedOperators.length > 0) {
-    // AI Dispatching logic
-    let dispatchedThisTick = false;
-    for (const incident of Object.values(gameState.incidents)) {
-      if (dispatchedThisTick) break;
-      if (incident.resolved || incident.isResolving) continue;
-      
-      const neededUnits = [...incident.requiredUnits];
-      incident.assignedUnits.forEach(uid => {
-        const u = gameState.units[uid];
-        if (u) {
-          const idx = neededUnits.indexOf(u.type);
-          if (idx !== -1) neededUnits.splice(idx, 1);
-        }
-      });
-      
-      if (neededUnits.length > 0) {
-        // Try to find the closest idle unit
-        for (const unitType of neededUnits) {
-          const idleUnits = Object.values(gameState.units).filter(u => u.type === unitType && u.state === 'idle' && u.fuel > 20);
-          if (idleUnits.length > 0) {
-            // Sort by distance to incident
-            idleUnits.sort((a, b) => {
-              const distA = Math.pow(a.location.lng - incident.location.lng, 2) + Math.pow(a.location.lat - incident.location.lat, 2);
-              const distB = Math.pow(b.location.lng - incident.location.lng, 2) + Math.pow(b.location.lat - incident.location.lat, 2);
-              return distA - distB;
-            });
-            const idleUnit = idleUnits[0];
-            idleUnit.state = 'routing';
-            idleUnit.targetIncidentId = incident.id;
-            incident.assignedUnits.push(idleUnit.id);
-            if (!incident.primaryOperator) {
-               incident.primaryOperator = 'AI_Operator';
-            }
-            if (idleUnit.type === 'helicopter' || incident.isMoving) {
-              idleUnit.route = [];
-              idleUnit.state = 'moving';
-            } else {
-              getRoute(idleUnit.location, incident.location).then(route => {
-                 if (idleUnit.targetIncidentId === incident.id && idleUnit.state === 'routing') {
-                   idleUnit.route = route;
-                   idleUnit.state = 'moving';
-                 }
+    const aiOp = gameState.rentedOperators[0];
+    const timeSinceLastAction = Date.now() - (aiOp.lastActionTime || 0);
+
+    if (timeSinceLastAction > 3000) {
+      // AI Dispatching logic
+      let dispatchedThisTick = false;
+      for (const incident of Object.values(gameState.incidents)) {
+        if (dispatchedThisTick) break;
+        if (incident.resolved || incident.isResolving) continue;
+        
+        const neededUnits = [...incident.requiredUnits];
+        incident.assignedUnits.forEach(uid => {
+          const u = gameState.units[uid];
+          if (u) {
+            const idx = neededUnits.indexOf(u.type);
+            if (idx !== -1) neededUnits.splice(idx, 1);
+          }
+        });
+        
+        if (neededUnits.length > 0) {
+          // Try to find the closest available unit
+          for (const unitType of neededUnits) {
+            const idleUnits = Object.values(gameState.units).filter(u => u.type === unitType && (u.state === 'idle' || u.state === 'patrolling') && u.fuel > 20);
+            if (idleUnits.length > 0) {
+              // Sort by distance to incident
+              idleUnits.sort((a, b) => {
+                const distA = Math.pow(a.location.lng - incident.location.lng, 2) + Math.pow(a.location.lat - incident.location.lat, 2);
+                const distB = Math.pow(b.location.lng - incident.location.lng, 2) + Math.pow(b.location.lat - incident.location.lat, 2);
+                return distA - distB;
               });
+              const idleUnit = idleUnits[0];
+              idleUnit.state = 'routing';
+              idleUnit.targetIncidentId = incident.id;
+              idleUnit.patrolTarget = null;
+              incident.assignedUnits.push(idleUnit.id);
+              if (!incident.primaryOperator) {
+                 incident.primaryOperator = 'AI_Operator';
+              }
+              if (idleUnit.type === 'helicopter' || incident.isMoving) {
+                idleUnit.route = [];
+                idleUnit.state = 'moving';
+              } else {
+                getRoute(idleUnit.location, incident.location).then(route => {
+                   if (idleUnit.targetIncidentId === incident.id && idleUnit.state === 'routing') {
+                     idleUnit.route = route;
+                     idleUnit.state = 'moving';
+                   }
+                });
+              }
+              addLog(`Operatorul AI a alocat ${idleUnit.name} la incidentul ${incident.name}`, 'info');
+              gameState.aiStatus = `A alocat ${idleUnit.name} la ${incident.name}`;
+              stateChanged = true;
+              dispatchedThisTick = true;
+              aiOp.lastActionTime = Date.now();
+              break; // dispatch one per tick to look natural
             }
-            addLog(`Operatorul AI a alocat ${idleUnit.name} la incidentul ${incident.name}`, 'info');
-            gameState.aiStatus = `A alocat ${idleUnit.name} la ${incident.name}`;
-            stateChanged = true;
-            dispatchedThisTick = true;
-            break; // dispatch one per tick to look natural
           }
         }
       }
@@ -738,14 +772,29 @@ async function startServer() {
       const unit = gameState.units[unitId];
       const incident = gameState.incidents[incidentId];
       
-      if (unit && incident && unit.state === 'idle') {
+      if (unit && incident && (unit.state === 'idle' || unit.state === 'patrolling' || unit.state === 'moving' || unit.state === 'routing' || unit.state === 'transporting')) {
         if (!incident.primaryOperator) {
           incident.primaryOperator = operator;
         }
+
+        // Unassign from previous incident if any
+        if (unit.targetIncidentId && unit.targetIncidentId !== incidentId) {
+           const prevIncident = gameState.incidents[unit.targetIncidentId];
+           if (prevIncident) {
+              prevIncident.assignedUnits = prevIncident.assignedUnits.filter(uid => uid !== unitId);
+           }
+        }
         
         unit.state = 'routing';
+        unit.patrolTarget = null;
+        unit.targetStationId = null;
+        unit.activity = undefined;
         unit.targetIncidentId = incidentId;
-        incident.assignedUnits.push(unitId);
+        
+        if (!incident.assignedUnits.includes(unitId)) {
+          incident.assignedUnits.push(unitId);
+        }
+        
         console.log(`Operator ${operator} dispatching unit ${unitId} to incident ${incidentId}`);
         io.emit("stateUpdate", gameState);
 
@@ -768,7 +817,7 @@ async function startServer() {
 
     socket.on("manualMoveUnit", async ({ unitId, targetLoc }) => {
       const unit = gameState.units[unitId];
-      if (unit && (unit.state === 'idle' || unit.state === 'patrolling' || unit.state === 'moving')) {
+      if (unit && (unit.state === 'idle' || unit.state === 'patrolling' || unit.state === 'moving' || unit.state === 'routing' || unit.state === 'transporting')) {
         // If it was assigned to an incident, unassign it
         if (unit.targetIncidentId) {
            const incident = gameState.incidents[unit.targetIncidentId];
@@ -801,14 +850,25 @@ async function startServer() {
 
     socket.on("rentOperator", () => {
       const COST = 15000;
-      if (gameState.budget >= COST) {
+      if (gameState.budget >= COST && gameState.rentedOperators.length === 0) {
         gameState.budget -= COST;
         // 4 in-game hours duration (4 * 60 * 60 * 1000 ms)
         const expiresAt = gameState.gameTime + (4 * 60 * 60 * 1000);
-        gameState.rentedOperators.push({ id: `op_${Date.now()}`, expiresAt });
+        gameState.rentedOperators.push({ id: `op_${Date.now()}`, expiresAt, lastActionTime: 0 });
         addLog('Ai închiriat un Operator AI pentru 4 ore (timp joc).', 'success');
         io.emit("stateUpdate", gameState);
+      } else if (gameState.rentedOperators.length > 0) {
+        addLog('Ai deja un Operator AI activ.', 'warning');
+        io.emit("stateUpdate", gameState);
       }
+    });
+
+    socket.on("fireOperator", () => {
+       if (gameState.rentedOperators.length > 0) {
+         gameState.rentedOperators = [];
+         addLog('Ai concediat Operatorul AI.', 'info');
+         io.emit("stateUpdate", gameState);
+       }
     });
 
     socket.on("refuelUnit", ({ unitId }) => {
@@ -822,18 +882,37 @@ async function startServer() {
       }
     });
 
-    socket.on("resolveComplication", ({ incidentId }) => {
+    socket.on("resolveComplication", ({ incidentId, optionId }) => {
       const incident = gameState.incidents[incidentId];
       if (incident && incident.complication && !incident.complication.resolved) {
-        if (gameState.budget >= 1000) {
-           gameState.budget -= 1000;
-           incident.complication.resolved = true;
-           incident.activities.unshift('Procedura a fost aprobată. Situația este sub control.');
-           addLog(`Procedură aprobată pentru ${incident.name}.`, 'info');
-           io.emit("stateUpdate", gameState);
+        if (optionId && incident.complication.options) {
+          const opt = incident.complication.options.find(o => o.id === optionId);
+          if (opt) {
+            if (gameState.budget >= opt.cost) {
+               gameState.budget -= opt.cost;
+               incident.complication.resolved = true;
+               incident.activities.unshift(opt.resultMsg);
+               if (opt.repImpact) gameState.reputation = Math.max(0, Math.min(100, gameState.reputation + opt.repImpact));
+               if (opt.id === 'opt2') gameState.budget += 2000;
+               addLog(`Ordin tactic confirmat: ${opt.label}`, 'info');
+               io.emit("stateUpdate", gameState);
+            } else {
+               addLog(`Fonduri insuficiente pentru tactica: ${opt.label}!`, 'error');
+               io.emit("stateUpdate", gameState);
+            }
+          }
         } else {
-           addLog(`Fonduri insuficiente pentru a aproba procedura la ${incident.name}!`, 'error');
-           io.emit("stateUpdate", gameState);
+          // Standard cost
+          if (gameState.budget >= 1000) {
+             gameState.budget -= 1000;
+             incident.complication.resolved = true;
+             incident.activities.unshift('Procedura a fost aprobată. Situația este sub control.');
+             addLog(`Procedură aprobată pentru ${incident.name}.`, 'info');
+             io.emit("stateUpdate", gameState);
+          } else {
+             addLog(`Fonduri insuficiente pentru a aproba procedura la ${incident.name}!`, 'error');
+             io.emit("stateUpdate", gameState);
+          }
         }
       }
     });

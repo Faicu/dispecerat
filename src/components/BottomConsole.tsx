@@ -45,7 +45,13 @@ const calculateETA = (unit: Unit, incidentLoc: Location, gameState: GameState) =
 export default function BottomConsole({ gameState, selectedIncidentId, selectedUnitId, onDispatch, onRefuel, onReturnToBase }: BottomConsoleProps) {
   const incident = selectedIncidentId ? gameState.incidents[selectedIncidentId] : null;
   const selectedUnit = selectedUnitId ? gameState.units[selectedUnitId] : null;
-  const availableUnits = Object.values(gameState.units).filter(u => u.state === 'idle');
+  const availableUnits = Object.values(gameState.units).filter(u => 
+    u.state === 'idle' || 
+    u.state === 'patrolling' || 
+    u.state === 'moving' || 
+    u.state === 'routing' || 
+    u.state === 'transporting'
+  );
 
   if ((!incident || incident.resolved) && !selectedUnit) {
     return (
@@ -193,11 +199,16 @@ export default function BottomConsole({ gameState, selectedIncidentId, selectedU
             <button 
               key={unit.id}
               onClick={() => onDispatch(unit.id)}
-              className="flex items-center justify-start gap-2 bg-slate-800/80 border border-slate-700 hover:bg-slate-700 hover:border-slate-500 rounded text-[10px] text-slate-300 py-2 px-3 transition-colors shadow-sm truncate text-left"
+              className={`flex flex-col justify-start gap-1 ${unit.state === 'idle' ? 'bg-slate-800/80 border-slate-700 hover:bg-slate-700' : 'bg-orange-900/20 border-orange-800/50 hover:bg-orange-800/40'} border rounded text-[10px] text-slate-300 py-1.5 px-2 transition-colors shadow-sm truncate text-left`}
               title={unit.name}
             >
-              <div className={`w-2 h-2 flex-shrink-0 ${getUnitColor(unit.type)}`}></div> 
-              <span className="uppercase font-bold tracking-wide truncate">{unit.name}</span>
+              <div className="flex items-center gap-1.5 w-full">
+                <div className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${getUnitColor(unit.type)}`}></div> 
+                <span className="uppercase font-bold tracking-wide truncate">{unit.name}</span>
+              </div>
+              {unit.state !== 'idle' && (
+                <span className="text-[8px] text-orange-400 font-mono uppercase truncate w-full pl-3">- {unit.state}</span>
+              )}
             </button>
           ))}
           {availableUnits.length === 0 && (

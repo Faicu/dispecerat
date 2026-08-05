@@ -2,7 +2,7 @@ import { MapContainer, TileLayer, Marker, Popup, Polyline, useMapEvents } from '
 import 'leaflet/dist/leaflet.css';
 import L from 'leaflet';
 import { GameState } from '../types';
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 
 // Fix Leaflet icons issue
 delete (L.Icon.Default.prototype as any)._getIconUrl;
@@ -46,22 +46,26 @@ const getUnitIcon = (type: string, id: string, state: string, isSelected: boolea
   });
 };
 
-const getIncidentIcon = (type: string, isSelected: boolean, severity: number = 1) => {
+const getIncidentIcon = (type: string, isSelected: boolean, severity: number = 1, resolved: boolean = false) => {
   const baseColor = type === 'crime' ? '#2563eb' : type === 'fire' ? '#dc2626' : '#f97316';
   let color = baseColor;
   let shadow = `0 0 15px rgba(220,38,38,0.8)`;
   
-  if (severity === 1) { color = '#3b82f6'; shadow = '0 0 10px rgba(59,130,246,0.6)'; }
+  if (resolved) {
+    color = '#10b981'; // emerald-500
+    shadow = '0 0 20px rgba(16,185,129,0.8)';
+  } else if (severity === 1) { color = '#3b82f6'; shadow = '0 0 10px rgba(59,130,246,0.6)'; }
   else if (severity === 2) { color = '#eab308'; shadow = '0 0 15px rgba(234,179,8,0.8)'; }
   else if (severity === 3) { color = '#dc2626'; shadow = '0 0 20px rgba(220,38,38,1)'; }
 
   const size = isSelected ? 48 : (32 + severity * 4);
-  const pulse = (isSelected || severity === 3) ? 'animate-ping' : '';
+  const pulse = (isSelected || severity === 3 || resolved) ? 'animate-ping' : '';
   
   let iconSvg = '<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>';
-  if (type === 'crime') iconSvg = '<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><path d="M12 8h.01"/></svg>';
-  if (type === 'fire') iconSvg = '<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8.5 14.5A2.5 2.5 0 0 0 11 12c0-1.38-.5-2-1-3-1.072-2.143-.224-4.054 2-6 .5 2.5 2 4.9 4 6.5 2 1.6 3 3.5 3 5.5a7 7 0 1 1-14 0c0-1.153.433-2.294 1-3a2.5 2.5 0 0 0 2.5 2.5z"/></svg>';
-  if (type === 'medical') iconSvg = '<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>';
+  if (resolved) iconSvg = '<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path><polyline points="22 4 12 14.01 9 11.01"></polyline></svg>';
+  else if (type === 'crime') iconSvg = '<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><path d="M12 8h.01"/></svg>';
+  else if (type === 'fire') iconSvg = '<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8.5 14.5A2.5 2.5 0 0 0 11 12c0-1.38-.5-2-1-3-1.072-2.143-.224-4.054 2-6 .5 2.5 2 4.9 4 6.5 2 1.6 3 3.5 3 5.5a7 7 0 1 1-14 0c0-1.153.433-2.294 1-3a2.5 2.5 0 0 0 2.5 2.5z"/></svg>';
+  else if (type === 'medical') iconSvg = '<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>';
 
   return new L.DivIcon({
     className: 'custom-icon',
@@ -71,7 +75,7 @@ const getIncidentIcon = (type: string, isSelected: boolean, severity: number = 1
         <div class="rounded-full border-2 border-white flex items-center justify-center text-white" style="width: ${size*0.75}px; height: ${size*0.75}px; background-color: ${color}; box-shadow: ${shadow}">
           ${iconSvg}
         </div>
-        ${severity === 3 ? `<div class="absolute -top-1 -right-1 w-3 h-3 bg-red-500 rounded-full animate-pulse border-2 border-white"></div>` : ''}
+        ${(severity === 3 && !resolved) ? `<div class="absolute -top-1 -right-1 w-3 h-3 bg-red-500 rounded-full animate-pulse border-2 border-white"></div>` : ''}
       </div>
     `,
     iconSize: [size, size],
@@ -88,10 +92,11 @@ interface MapViewProps {
   onMapClick: (lat: number, lng: number) => void;
 }
 
-function MapClickHandler({ onMapClick }: { onMapClick: (lat: number, lng: number) => void }) {
+function MapClickHandler({ onMapClick, addRipple }: { onMapClick: (lat: number, lng: number) => void, addRipple: (lat: number, lng: number) => void }) {
   useMapEvents({
     click(e) {
       onMapClick(e.latlng.lat, e.latlng.lng);
+      addRipple(e.latlng.lat, e.latlng.lng);
     }
   });
   return null;
@@ -100,6 +105,15 @@ function MapClickHandler({ onMapClick }: { onMapClick: (lat: number, lng: number
 export default function MapView({ gameState, selectedIncidentId, onSelectIncident, selectedUnitId, onSelectUnit, onMapClick }: MapViewProps) {
   // Center of Bucharest
   const center = { lat: 44.44, lng: 26.09 };
+  const [ripples, setRipples] = useState<{lat: number, lng: number, id: number}[]>([]);
+
+  const addRipple = (lat: number, lng: number) => {
+    const id = Date.now() + Math.random();
+    setRipples(r => [...r, { lat, lng, id }]);
+    setTimeout(() => {
+      setRipples(r => r.filter(x => x.id !== id));
+    }, 1000);
+  };
 
   return (
     <MapContainer
@@ -109,10 +123,21 @@ export default function MapView({ gameState, selectedIncidentId, onSelectInciden
       zoomControl={false}
       attributionControl={false}
     >
-      <MapClickHandler onMapClick={onMapClick} />
+      <MapClickHandler onMapClick={onMapClick} addRipple={addRipple} />
       <TileLayer
         url="https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png"
       />
+      {ripples.map(r => (
+        <Marker
+          key={r.id}
+          position={[r.lat, r.lng]}
+          icon={new L.DivIcon({
+            className: 'custom-icon',
+            html: `<div class="w-16 h-16 -ml-8 -mt-8 rounded-full border border-sky-400 animate-ping opacity-70"></div>`,
+            iconSize: [0, 0]
+          })}
+        />
+      ))}
 
       {gameState.stations?.map((station) => (
         <Marker
@@ -172,10 +197,9 @@ export default function MapView({ gameState, selectedIncidentId, onSelectInciden
         <Marker
           key={incident.id}
           position={[incident.location.lat, incident.location.lng]}
-          icon={getIncidentIcon(incident.type, selectedIncidentId === incident.id, incident.severity)}
+          icon={getIncidentIcon(incident.type, selectedIncidentId === incident.id, incident.severity, incident.resolved)}
           eventHandlers={{
-            click: (e) => {
-              e.originalEvent.stopPropagation();
+            click: () => {
               onSelectIncident(incident.id === selectedIncidentId ? null : incident.id);
             },
           }}
@@ -189,8 +213,7 @@ export default function MapView({ gameState, selectedIncidentId, onSelectInciden
           position={[unit.location.lat, unit.location.lng]}
           icon={getUnitIcon(unit.type, unit.name.split(' ')[0], unit.state, selectedUnitId === unit.id)}
           eventHandlers={{
-            click: (e) => {
-              e.originalEvent.stopPropagation();
+            click: () => {
               onSelectUnit(unit.id === selectedUnitId ? null : unit.id);
             },
           }}

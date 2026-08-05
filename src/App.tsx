@@ -6,7 +6,7 @@ import TopNav from './components/TopNav';
 import LeftSidebar from './components/LeftSidebar';
 import RightSidebar from './components/RightSidebar';
 import BottomConsole from './components/BottomConsole';
-import { playClick, playDispatch, playIncident, playSuccess, playSiren, speak } from './audio';
+import { playClick, playDispatch, playIncident, playSuccess, playSiren, speak, playRadioChatter } from './audio';
 
 const socket: Socket = io();
 
@@ -81,8 +81,11 @@ export default function App() {
 
   const handleMapClick = (lat: number, lng: number) => {
     if (selectedUnitId) {
-      playClick();
+      playRadioChatter();
       socket.emit('manualMoveUnit', { unitId: selectedUnitId, targetLoc: { lat, lng } });
+      setSelectedUnitId(null);
+    } else {
+      setSelectedIncidentId(null);
       setSelectedUnitId(null);
     }
   };
@@ -166,6 +169,7 @@ export default function App() {
           gameState={gameState} 
           onPurchase={handlePurchase} 
           onRentOperator={() => socket.emit('rentOperator')} 
+          onFireOperator={() => socket.emit('fireOperator')}
           onSetIncidentRate={(rate) => socket.emit('setIncidentRate', { rate })}
           onRefuelAll={() => socket.emit('refuelAll')}
         />
@@ -187,7 +191,7 @@ export default function App() {
           gameState={gameState}
           selectedIncidentId={selectedIncidentId}
           onSelectIncident={setSelectedIncidentId}
-          onResolveComplication={(incidentId) => socket.emit('resolveComplication', { incidentId })}
+          onResolveComplication={(incidentId, optionId) => socket.emit('resolveComplication', { incidentId, optionId })}
         />
       </div>
       

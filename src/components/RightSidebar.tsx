@@ -4,11 +4,12 @@ interface RightSidebarProps {
   gameState: GameState;
   selectedIncidentId: string | null;
   onSelectIncident: (id: string | null) => void;
-  onResolveComplication: (incidentId: string) => void;
+  onResolveComplication: (incidentId: string, optionId?: string) => void;
 }
 
 export default function RightSidebar({ gameState, selectedIncidentId, onSelectIncident, onResolveComplication }: RightSidebarProps) {
   const incidentsList = Object.values(gameState.incidents).sort((a, b) => b.createdAt - a.createdAt);
+  const now = gameState.gameTime || Date.now();
 
   return (
     <div className="w-72 border-l border-slate-800 bg-slate-900/50 flex flex-col z-10 relative">
@@ -36,6 +37,12 @@ export default function RightSidebar({ gameState, selectedIncidentId, onSelectIn
               theme.text = isSelected ? 'text-orange-300' : 'text-orange-400';
             }
             
+            const timeElapsed = now - incident.createdAt;
+            const timeRemaining = Math.max(0, 180000 - timeElapsed);
+            const mins = Math.floor(timeRemaining / 60000);
+            const secs = Math.floor((timeRemaining % 60000) / 1000);
+            const timeStr = incident.isResolving ? 'Soluționare...' : (incident.resolved ? 'Rezolvat' : `${mins}:${secs.toString().padStart(2, '0')} rămas`);
+
             return (
               <div 
                 key={incident.id} 
@@ -44,14 +51,15 @@ export default function RightSidebar({ gameState, selectedIncidentId, onSelectIn
               >
                 <div className="flex justify-between text-[10px] uppercase font-bold tracking-wider">
                   <span className={incident.resolved ? 'text-green-500' : theme.text}>{incident.id} - {incident.name}</span>
-                  <span className="opacity-40">{new Date(incident.createdAt).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</span>
+                  <span className={timeRemaining < 30000 && !incident.isResolving && !incident.resolved ? 'text-red-500 animate-pulse' : 'text-slate-400'}>{timeStr}</span>
                 </div>
                 <div className="text-[10px] text-slate-400 font-mono mb-1 truncate" title={incident.address || `${incident.location.lat.toFixed(4)}, ${incident.location.lng.toFixed(4)}`}>
                   📍 {incident.address || `${incident.location.lat.toFixed(4)}, ${incident.location.lng.toFixed(4)}`}
                 </div>
                 {incident.isResolving && !incident.resolved && (
-                  <div className="w-full bg-slate-950 h-1.5 mt-1 rounded-full overflow-hidden">
+                  <div className="w-full bg-slate-950 h-1.5 mt-1 rounded-full overflow-hidden flex relative">
                     <div className="bg-emerald-500 h-full transition-all duration-300" style={{ width: `${Math.min(incident.resolutionProgress || 0, 100)}%` }}></div>
+                    <span className="absolute inset-0 flex items-center justify-center text-[7px] text-white/50">{Math.floor(incident.resolutionProgress || 0)}%</span>
                   </div>
                 )}
                 {incident.complication && !incident.complication.resolved && (
@@ -64,12 +72,26 @@ export default function RightSidebar({ gameState, selectedIncidentId, onSelectIn
                 {incident.complication && !incident.complication.resolved && isSelected && (
                   <div className="mt-2 p-2 bg-red-950/40 border border-red-900/50 rounded flex flex-col gap-2">
                     <div className="text-[10px] text-red-300">{incident.complication.message}</div>
-                    <button 
-                      onClick={(e) => { e.stopPropagation(); onResolveComplication(incident.id); }}
-                      className="bg-red-800/80 hover:bg-red-700 text-white text-[10px] py-1 px-2 rounded uppercase font-bold tracking-wider"
-                    >
-                      {incident.complication.actionLabel}
-                    </button>
+                    {incident.complication.options ? (
+                      <div className="flex flex-col gap-1 mt-1">
+                        {incident.complication.options.map(opt => (
+                          <button 
+                            key={opt.id}
+                            onClick={(e) => { e.stopPropagation(); onResolveComplication(incident.id, opt.id); }}
+                            className="bg-red-800/60 hover:bg-red-700 border border-red-700 text-white text-[10px] py-1 px-2 rounded tracking-wide text-left flex justify-between"
+                          >
+                            <span>{opt.label}</span>
+                          </button>
+                        ))}
+                      </div>
+                    ) : (
+                      <button 
+                        onClick={(e) => { e.stopPropagation(); onResolveComplication(incident.id); }}
+                        className="bg-red-800/80 hover:bg-red-700 text-white text-[10px] py-1 px-2 rounded uppercase font-bold tracking-wider mt-1"
+                      >
+                        {incident.complication.actionLabel}
+                      </button>
+                    )}
                   </div>
                 )}
 
