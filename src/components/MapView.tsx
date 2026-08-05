@@ -214,11 +214,11 @@ function MiniMap({ gameState }: { gameState: GameState }) {
   }, [gameState]);
 
   return (
-    <div className="absolute bottom-4 left-4 z-20 rounded border border-slate-700 overflow-hidden shadow-xl" style={{ width: 140, height: 90 }}>
+    <div className="hidden sm:block absolute bottom-4 left-4 z-20 rounded border border-slate-700 overflow-hidden shadow-xl" style={{ width: 140, height: 90 }}>
       <canvas ref={canvasRef} width={140} height={90} className="block" />
       <div className="absolute bottom-0 left-0 right-0 bg-black/60 px-1.5 py-0.5 flex justify-between">
         <span className="text-[8px] text-slate-400 uppercase tracking-wider">Overview</span>
-        <span className="text-[8px] text-slate-500">{Object.keys(gameState.units).length}u · {Object.values(gameState.incidents).filter(i => !i.resolved).length}i</span>
+        <span className="text-[8px] text-slate-500">{Object.keys(gameState.units).length}u · {Object.values(gameState.incidents).filter(i => !(i.isPhoneCall && i.callStatus !== 'completed')).filter(i => !(i.isPhoneCall && i.callStatus !== 'completed')).filter(i => !i.resolved).length}i</span>
       </div>
     </div>
   );

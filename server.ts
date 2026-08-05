@@ -112,84 +112,154 @@ const getAddress = async (lat: number, lng: number): Promise<string> => {
   });
 };
 
-// Spawn police units near stations (only for a fresh game; restored saves already have units)
-if (!savedGame) {
-policeStations.forEach((station, i) => {
-  const loc = { lat: station.location.lat + (Math.random() - 0.5) * 0.005, lng: station.location.lng + (Math.random() - 0.5) * 0.005 };
-  gameState.units[`u${unitIdCounter++}`] = {
-    id: `u${unitIdCounter - 1}`,
-    name: `POL-${i + 1}`,
-    type: 'police',
-    state: 'idle',
-    location: loc,
-    targetIncidentId: null,
-    fuel: 100,
-  };
-});
+const createInitialUnits = () => {
+  const units: Record<string, any> = {};
+  let uCounter = 1;
 
-// Other units
-for (let i = 0; i < 8; i++) {
-  gameState.units[`u${unitIdCounter++}`] = {
-    id: `u${unitIdCounter - 1}`,
-    name: `ISU-${i + 1}`,
-    type: 'fire',
-    state: 'idle',
-    location: { ...fireStations[i % fireStations.length].location },
-    targetIncidentId: null,
-    fuel: 100,
-  };
+  // 28 Police - 1 for each police station
+  policeStations.forEach((station, i) => {
+    units[`u${uCounter}`] = {
+      id: `u${uCounter}`,
+      name: `POL-${i + 1}`,
+      type: 'police',
+      state: 'idle',
+      location: { lat: station.location.lat + (Math.random() - 0.5) * 0.003, lng: station.location.lng + (Math.random() - 0.5) * 0.003 },
+      targetIncidentId: null,
+      fuel: 100,
+      targetStationId: station.id,
+    };
+    uCounter++;
+  });
+
+  // 8 Fire trucks
+  for (let i = 0; i < 8; i++) {
+    const st = fireStations[i % fireStations.length];
+    units[`u${uCounter}`] = {
+      id: `u${uCounter}`,
+      name: `ISU-${i + 1}`,
+      type: 'fire',
+      state: 'idle',
+      location: { ...st.location },
+      targetIncidentId: null,
+      fuel: 100,
+      targetStationId: st.id,
+    };
+    uCounter++;
+  }
+
+  // 12 Ambulances
+  for (let i = 0; i < 12; i++) {
+    const st = hospitals[i % hospitals.length];
+    units[`u${uCounter}`] = {
+      id: `u${uCounter}`,
+      name: `AMB-${i + 1}`,
+      type: 'ambulance',
+      state: 'idle',
+      location: { ...st.location },
+      targetIncidentId: null,
+      fuel: 100,
+      targetStationId: st.id,
+    };
+    uCounter++;
+  }
+
+  // 6 Gendarmerie
+  for (let i = 0; i < 6; i++) {
+    const st = policeStations[(i * 4) % policeStations.length];
+    units[`u${uCounter}`] = {
+      id: `u${uCounter}`,
+      name: `JAN-${i + 1}`,
+      type: 'gendarmerie',
+      state: 'idle',
+      location: { ...st.location },
+      targetIncidentId: null,
+      fuel: 100,
+      targetStationId: st.id,
+    };
+    uCounter++;
+  }
+
+  // 6 SWAT / Mascați
+  for (let i = 0; i < 6; i++) {
+    const st = policeStations[(i * 4 + 2) % policeStations.length];
+    units[`u${uCounter}`] = {
+      id: `u${uCounter}`,
+      name: `SAS-${i + 1}`,
+      type: 'swat',
+      state: 'idle',
+      location: { ...st.location },
+      targetIncidentId: null,
+      fuel: 100,
+      targetStationId: st.id,
+    };
+    uCounter++;
+  }
+
+  // 3 Helicopters
+  for (let i = 0; i < 3; i++) {
+    const st = hospitals[i % hospitals.length];
+    units[`u${uCounter}`] = {
+      id: `u${uCounter}`,
+      name: `IGAV-${i + 1}`,
+      type: 'helicopter',
+      state: 'idle',
+      location: { ...st.location },
+      targetIncidentId: null,
+      fuel: 100,
+      targetStationId: st.id,
+    };
+    uCounter++;
+  }
+
+  return { units, uCounter };
+};
+
+// Spawn initial default units if no saved game
+if (!savedGame) {
+  const { units, uCounter } = createInitialUnits();
+  gameState.units = units;
+  unitIdCounter = uCounter;
 }
-for (let i = 0; i < 10; i++) {
-  gameState.units[`u${unitIdCounter++}`] = {
-    id: `u${unitIdCounter - 1}`,
-    name: `AMB-${i + 1}`,
-    type: 'ambulance',
-    state: 'idle',
-    location: { ...hospitals[i % hospitals.length].location },
-    targetIncidentId: null,
-    fuel: 100,
-  };
-}
-for (let i = 0; i < 5; i++) {
-  gameState.units[`u${unitIdCounter++}`] = {
-    id: `u${unitIdCounter - 1}`,
-    name: `JAN-${i + 1}`,
-    type: 'gendarmerie',
-    state: 'idle',
-    location: getRandomLocation(),
-    targetIncidentId: null,
-    fuel: 100,
-  };
-}
-for (let i = 0; i < 3; i++) {
-  gameState.units[`u${unitIdCounter++}`] = {
-    id: `u${unitIdCounter - 1}`,
-    name: `SAS-${i + 1}`,
-    type: 'swat',
-    state: 'idle',
-    location: getRandomLocation(),
-    targetIncidentId: null,
-    fuel: 100,
-  };
-}
-for (let i = 0; i < 2; i++) {
-  gameState.units[`u${unitIdCounter++}`] = {
-    id: `u${unitIdCounter - 1}`,
-    name: `IGAV-${i + 1}`,
-    type: 'helicopter',
-    state: 'idle',
-    location: { ...hospitals[0].location }, // Heliport
-    targetIncidentId: null,
-    fuel: 100,
-  };
-}
-}
+
+let lastPhoneCallTime = 0;
 
 const spawnIncident = () => {
   const template = incidentTypes[Math.floor(Math.random() * incidentTypes.length)];
   const id = `i${incidentIdCounter++}`;
   const location = getRandomLocation();
   
+  const activePhoneCallsCount = Object.values(gameState.incidents || {}).filter(i => i.isPhoneCall && (i.callStatus === 'ringing' || i.callStatus === 'answered')).length;
+  const now = Date.now();
+  const isPhoneCall = activePhoneCallsCount === 0 && (now - lastPhoneCallTime > 30000) && (Math.random() < 0.25);
+  if (isPhoneCall) {
+    lastPhoneCallTime = now;
+  }
+  
+  let callerDialogue: { text: string; options: { text: string; nextStep: number | 'dispatch' }[] }[] | undefined = undefined;
+  let callStatus: 'ringing' | 'answered' | 'completed' | undefined = undefined;
+  let currentDialogueStep = undefined;
+
+  if (isPhoneCall) {
+    callStatus = 'ringing';
+    currentDialogueStep = 0;
+    callerDialogue = [
+      {
+        text: `Alo, 112! ${template.desc} Vă rog să veniți repede!`,
+        options: [
+          { text: "Liniștiți-vă, spuneți-mi adresa exactă.", nextStep: 1 },
+          { text: "Trimitem echipaje imediat.", nextStep: 'dispatch' }
+        ]
+      },
+      {
+        text: "Sunt undeva pe strada... ah, e multă panică! Vă rog grăbiți-vă!",
+        options: [
+          { text: "Am localizat apelul. Rămâneți la telefon până ajung colegii mei.", nextStep: 'dispatch' },
+          { text: "Încercați să vă îndepărtați de pericol. Echipajele sunt pe drum.", nextStep: 'dispatch' }
+        ]
+      }
+    ];
+  }
+
   gameState.incidents[id] = {
     id,
     name: template.name,
@@ -209,6 +279,10 @@ const spawnIncident = () => {
     createdAt: Date.now(),
     reward: template.reward,
     severity: template.severity,
+    isPhoneCall,
+    callStatus,
+    callerDialogue,
+    currentDialogueStep
   };
 
   addLog(`Incident Nou (Cod ${template.severity}): ${template.name}`, 'warning');
@@ -414,7 +488,7 @@ const tick = (io: Server) => {
             unit.activity = undefined;
           }
         }
-      } else {
+      } else if (unit.type === 'helicopter') {
         const reached = moveLocationTowards(unit.location, unit.patrolTarget, UNIT_SPEED * 0.5);
         if (reached) {
           unit.state = 'idle';
@@ -436,7 +510,7 @@ const tick = (io: Server) => {
           }
         }
         stateChanged = true;
-      } else {
+      } else if (unit.type === 'helicopter') {
         const allBases = [...gameState.stations, ...gameState.hospitals, ...gameState.fireStations];
         const station = allBases.find(s => s.id === unit.targetStationId);
         if (station) {
@@ -464,15 +538,28 @@ const tick = (io: Server) => {
         // Fallback to straight line if no route
         const incident = gameState.incidents[unit.targetIncidentId];
         if (incident) {
-          const reached = moveUnitTowards(unit, incident.location);
-          if (reached) {
-            if (incident.isMoving) {
-              incident.isMoving = false; // Stopped the suspect!
-              incident.activities = ['Suspect blocat în trafic. Se intervine pentru reținere.'];
+          if (unit.type === 'helicopter') {
+            const reached = moveUnitTowards(unit, incident.location);
+            if (reached) {
+              if (incident.isMoving) {
+                incident.isMoving = false; // Stopped the suspect!
+                incident.activities = ['Suspect blocat în trafic. Se intervine pentru reținere.'];
+              }
+              unit.state = 'on_scene';
             }
-            unit.state = 'on_scene';
+            stateChanged = true;
+          } else if (incident.isMoving) {
+             // For ground units chasing moving incident, if route empty, recalculate
+             if (!unit.recalculatingRoute) {
+                unit.recalculatingRoute = true;
+                getRoute(unit.location, incident.location).then(route => {
+                   if (unit.state === 'moving' && unit.targetIncidentId === incident.id) {
+                      unit.route = route;
+                   }
+                   unit.recalculatingRoute = false;
+                }).catch(() => { unit.recalculatingRoute = false; });
+             }
           }
-          stateChanged = true;
         } else {
           unit.state = 'idle';
           unit.targetIncidentId = null;
@@ -699,10 +786,9 @@ const tick = (io: Server) => {
 
                 unit.targetStationId = targetBase.id;
                 
-                // Find route to station in background (or fallback to straight line in next tick)
-                if (unit.type === 'helicopter') {
-                   unit.route = [];
-                } else {
+                // Find route to station in background
+                unit.route = [];
+                if (unit.type !== 'helicopter') {
                    getRoute(unit.location, targetBase.location).then(route => {
                      if (unit.state === 'transporting' && unit.targetStationId === targetBase.id) {
                        unit.route = route;
@@ -731,9 +817,22 @@ const tick = (io: Server) => {
     }
   });
 
+  // Check for ringing calls timeout (18 seconds)
+  Object.values(gameState.incidents).forEach(inc => {
+    if (inc.isPhoneCall && inc.callStatus === 'ringing' && Date.now() - inc.createdAt > 18000) {
+      inc.callStatus = 'completed';
+      addLog(`Apel 112 nepreluat la timp pentru ${inc.name} (Linia s-a închis)`, 'warning');
+      stateChanged = true;
+    }
+  });
+
   // Randomly spawn new incidents based on wave rate
-  const effectiveRate = gameState.incidentRate * (gameState.incidentMultiplier ?? 1);
-  if (Math.random() < effectiveRate && Object.keys(gameState.incidents).length < 40) {
+  const activeIncidents = Object.values(gameState.incidents).filter(i => !i.resolved).length;
+  // Adaptează rata de incidente în funcție de numărul incidentelor active (mai puține incidente => rată mai mare)
+  let incidentScale = Math.max(0.2, 1.5 - (activeIncidents / 20));
+  if (activeIncidents === 0) incidentScale = 5;
+  const effectiveRate = gameState.incidentRate * (gameState.incidentMultiplier ?? 1) * incidentScale;
+  if (Math.random() < effectiveRate && activeIncidents < 40) {
     spawnIncident();
     stateChanged = true;
   }
@@ -826,32 +925,26 @@ async function startServer() {
       gameState.isGameOver = false;
       gameState.gameOverReason = undefined;
       gameState.reputation = 100;
-      gameState.budget = 50000;
+      gameState.budget = 150000;
       gameState.resolvedCountTotal = 0;
       gameState.resolvedCountPerOperator = {};
       gameState.incidents = {};
+      gameState.logs = [];
       gameState.incidentRate = 0.003;
       gameState.incidentMultiplier = 1;
       gameState.wavePhase = 'calm';
       gameState.waveTimer = Date.now();
       
-      // Respawn 2 incidents
+      const { units, uCounter } = createInitialUnits();
+      gameState.units = units;
+      unitIdCounter = uCounter;
+      incidentIdCounter = 1;
+
+      // Respawn 2 default incidents
       spawnIncident();
       spawnIncident();
       
-      // Reset units to idle at station and full fuel
-      Object.values(gameState.units).forEach(u => {
-        u.state = 'idle';
-        u.fuel = 100;
-        u.targetIncidentId = null;
-        u.route = undefined;
-        const allBases = [...gameState.stations, ...gameState.hospitals, ...gameState.fireStations];
-        const station = allBases.find(s => s.id === u.targetStationId);
-        if (station) {
-           u.location = { ...station.location };
-        }
-      });
-      
+      saveGame(gameState, incidentIdCounter, unitIdCounter);
       io.emit("stateUpdate", gameState);
     });
     socket.on("toggleBreak", () => {
@@ -866,6 +959,26 @@ async function startServer() {
       connectedOperators.set(socket.id, { name, roles: roles || [] });
       gameState.operators = Array.from(connectedOperators.values());
       io.emit("stateUpdate", gameState);
+    });
+
+
+    socket.on("answerCall", ({ incidentId, operator }) => {
+      const inc = gameState.incidents[incidentId];
+      if (inc && inc.isPhoneCall && inc.callStatus === 'ringing') {
+        inc.callStatus = 'answered';
+        inc.primaryOperator = operator;
+      }
+    });
+
+    socket.on("progressCall", ({ incidentId, nextStep }) => {
+      const inc = gameState.incidents[incidentId];
+      if (inc && inc.isPhoneCall && inc.callStatus === 'answered') {
+        if (nextStep === 'dispatch') {
+          inc.callStatus = 'completed';
+        } else {
+          inc.currentDialogueStep = nextStep;
+        }
+      }
     });
 
     socket.on("dispatchUnit", async ({ unitId, incidentId, operator }) => {
@@ -901,7 +1014,7 @@ async function startServer() {
         console.log(`Operator ${operator} dispatching unit ${unitId} to incident ${incidentId}`);
         io.emit("stateUpdate", gameState);
 
-        if (unit.type === 'helicopter' || incident.isMoving) {
+        if (unit.type === 'helicopter') {
           unit.route = [];
           unit.state = 'moving';
           io.emit("stateUpdate", gameState);
@@ -1058,9 +1171,8 @@ async function startServer() {
         unit.targetStationId = targetBase.id;
         unit.activity = 'Se întoarce la bază.';
         
-        if (unit.type === 'helicopter') {
-          unit.route = [];
-        } else {
+        unit.route = [];
+        if (unit.type !== 'helicopter') {
           getRoute(unit.location, targetBase.location).then(route => {
              if (unit.state === 'transporting' && unit.targetStationId === targetBase.id) {
                unit.route = route;

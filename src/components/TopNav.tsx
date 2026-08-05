@@ -52,11 +52,11 @@ export default function TopNav({
     return () => document.removeEventListener('mousedown', handler);
   }, [settingsOpen]);
 
-  const wave = WAVE_LABELS[gameState.wavePhase ?? 'calm'];
-  const myOperator = gameState.operators.find(o => o.name === playerName);
+  const wave = WAVE_LABELS[gameState?.wavePhase ?? 'calm'] || WAVE_LABELS['calm'];
+  const myOperator = (gameState?.operators || []).find(o => o.name === playerName);
 
   return (
-    <div className="h-11 border-b border-slate-800 bg-slate-950/90 flex items-center justify-between px-3 z-20 relative shrink-0 backdrop-blur-sm">
+    <div className="h-11 border-b border-slate-800 bg-slate-950/90 flex items-center justify-between px-3 z-[100] relative shrink-0 backdrop-blur-sm">
       {/* LEFT — logo + operator info */}
       <div className="flex items-center gap-3 min-w-0">
         <div className="flex items-center gap-1.5 shrink-0">
@@ -82,24 +82,30 @@ export default function TopNav({
             )}
           </div>
         )}
+
+        <div className="flex sm:hidden items-center gap-1.5 text-[10px] font-mono shrink-0 ml-1">
+          <span className="text-emerald-400 font-bold">€{(gameState?.budget ?? 0).toLocaleString()}</span>
+          <span className="text-slate-600">|</span>
+          <span className={`font-bold ${(gameState?.reputation ?? 100) > 50 ? 'text-emerald-400' : (gameState?.reputation ?? 100) > 20 ? 'text-yellow-400' : 'text-red-500'}`}>{gameState?.reputation ?? 100}%</span>
+        </div>
       </div>
 
       {/* CENTER — key stats */}
       <div className="hidden sm:flex items-center gap-4 text-[10px] font-mono absolute left-1/2 -translate-x-1/2">
         <div className="flex flex-col items-center">
-          <span className={`font-bold ${gameState.reputation > 50 ? 'text-emerald-400' : gameState.reputation > 20 ? 'text-yellow-400' : 'text-red-500'}`}>
-            {gameState.reputation ?? 0}%
+          <span className={`font-bold ${(gameState?.reputation ?? 100) > 50 ? 'text-emerald-400' : (gameState?.reputation ?? 100) > 20 ? 'text-yellow-400' : 'text-red-500'}`}>
+            {gameState?.reputation ?? 0}%
           </span>
           <span className="text-slate-600 text-[8px] uppercase tracking-wider">Rep</span>
         </div>
         <div className="h-4 w-px bg-slate-800" />
         <div className="flex flex-col items-center">
-          <span className="text-emerald-400 font-bold">€{(gameState.budget ?? 0).toLocaleString()}</span>
+          <span className="text-emerald-400 font-bold">€{(gameState?.budget ?? 0).toLocaleString()}</span>
           <span className="text-slate-600 text-[8px] uppercase tracking-wider">Buget</span>
         </div>
         <div className="h-4 w-px bg-slate-800" />
         <div className="flex flex-col items-center">
-          <span className="text-sky-400 font-bold">{gameState.resolvedCountTotal ?? 0}</span>
+          <span className="text-sky-400 font-bold">{gameState?.resolvedCountTotal ?? 0}</span>
           <span className="text-slate-600 text-[8px] uppercase tracking-wider">Soluționate</span>
         </div>
         <div className="h-4 w-px bg-slate-800" />
@@ -116,15 +122,16 @@ export default function TopNav({
         <button
           onClick={() => setSettingsOpen(v => !v)}
           className={`p-1.5 rounded border transition-colors ${settingsOpen ? 'bg-slate-700 border-slate-600 text-white' : 'bg-slate-900 border-slate-700 text-slate-400 hover:text-white'}`}
+          title="Setări Joc"
         >
           <Settings size={14} />
         </button>
 
         {/* Settings panel */}
         {settingsOpen && (
-          <div className="absolute top-12 right-2 w-72 bg-slate-900 border border-slate-700 rounded-lg shadow-2xl z-50 overflow-hidden">
+          <div className="absolute top-12 right-2 w-72 bg-slate-900 border border-slate-700 rounded-lg shadow-2xl z-[110] overflow-hidden">
             <div className="flex items-center justify-between px-4 py-3 border-b border-slate-800">
-              <span className="text-xs font-bold uppercase tracking-widest text-slate-300">Setări</span>
+              <span className="text-xs font-bold uppercase tracking-widest text-slate-300">Setări Dispecerat</span>
               <button onClick={() => setSettingsOpen(false)} className="text-slate-500 hover:text-white">
                 <X size={14} />
               </button>
@@ -154,7 +161,7 @@ export default function TopNav({
                 {(['calm', 'building', 'wave', 'decay'] as const).map(phase => (
                   <div
                     key={phase}
-                    className={`flex-1 py-1 rounded text-center text-[9px] font-bold uppercase border transition-all ${gameState.wavePhase === phase ? `${WAVE_LABELS[phase].color} bg-slate-800 border-slate-600` : 'text-slate-700 border-slate-800'}`}
+                    className={`flex-1 py-1 rounded text-center text-[9px] font-bold uppercase border transition-all ${gameState?.wavePhase === phase ? `${WAVE_LABELS[phase].color} bg-slate-800 border-slate-600` : 'text-slate-700 border-slate-800'}`}
                   >
                     {WAVE_LABELS[phase].label}
                   </div>
@@ -168,8 +175,8 @@ export default function TopNav({
                 <div className="flex items-center gap-2 mb-2">
                   <Waves size={13} className="text-slate-500" />
                   <span className="text-[10px] uppercase tracking-widest text-slate-500">Flux Incidente Manual</span>
-                  <span className={`ml-auto text-[10px] font-bold ${(gameState.incidentMultiplier ?? 1) > 1 ? 'text-yellow-400' : 'text-slate-500'}`}>
-                    x{gameState.incidentMultiplier ?? 1}
+                  <span className={`ml-auto text-[10px] font-bold ${(gameState?.incidentMultiplier ?? 1) > 1 ? 'text-yellow-400' : 'text-slate-500'}`}>
+                    x{gameState?.incidentMultiplier ?? 1}
                   </span>
                 </div>
                 <div className="flex gap-1">
@@ -178,7 +185,7 @@ export default function TopNav({
                       key={v}
                       onClick={() => onSetMultiplier(v)}
                       className={`flex-1 py-1 rounded border text-[9px] font-bold transition-colors ${
-                        (gameState.incidentMultiplier ?? 1) === v
+                        (gameState?.incidentMultiplier ?? 1) === v
                           ? 'bg-yellow-600/30 border-yellow-600 text-yellow-300'
                           : 'bg-slate-800 border-slate-700 text-slate-400 hover:text-white'
                       }`}
@@ -194,7 +201,7 @@ export default function TopNav({
             <div className="px-4 py-3 border-b border-slate-800 flex items-center gap-2 text-sm text-slate-300">
               <Wind size={13} className="text-slate-500" />
               <span className="text-slate-500 text-xs">Vreme:</span>
-              <span className="text-xs font-mono">{WEATHER_LABELS[gameState.weather] || gameState.weather}</span>
+              <span className="text-xs font-mono">{WEATHER_LABELS[gameState?.weather ?? 'sunny'] || gameState?.weather}</span>
             </div>
 
             {/* Active operators */}
@@ -202,14 +209,14 @@ export default function TopNav({
               <div className="flex items-center gap-2 mb-2">
                 <Users size={13} className="text-slate-500" />
                 <span className="text-[10px] uppercase tracking-widest text-slate-500">
-                  Operatori Activi ({gameState.operators.length})
+                  Operatori Activi ({(gameState?.operators || []).length})
                 </span>
               </div>
-              {gameState.operators.length === 0 ? (
+              {(gameState?.operators || []).length === 0 ? (
                 <p className="text-[10px] text-slate-600 italic">Niciun operator conectat.</p>
               ) : (
                 <div className="space-y-1 max-h-32 overflow-y-auto">
-                  {gameState.operators.map((op, i) => (
+                  {(gameState?.operators || []).map((op, i) => (
                     <div key={i} className={`flex items-center justify-between rounded px-2 py-1 ${op.name === playerName ? 'bg-sky-900/30 border border-sky-800/50' : 'bg-slate-800/50'}`}>
                       <div className="flex items-center gap-1.5">
                         <div className={`w-1.5 h-1.5 rounded-full ${op.isOnBreak ? 'bg-yellow-500' : 'bg-emerald-500'}`} />
@@ -217,7 +224,7 @@ export default function TopNav({
                         {op.name === playerName && <span className="text-[8px] text-sky-500">(tu)</span>}
                       </div>
                       <div className="flex gap-0.5">
-                        {op.roles.map(r => (
+                        {(op.roles || []).map(r => (
                           <span key={r} className="text-[8px] px-1 py-0.5 bg-slate-700 text-slate-400 rounded uppercase">{r.slice(0, 3)}</span>
                         ))}
                         {op.isOnBreak && <span className="text-[8px] px-1 py-0.5 bg-yellow-900/40 text-yellow-500 rounded">AI</span>}

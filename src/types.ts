@@ -19,7 +19,8 @@ export interface Unit {
   route?: Location[];
   patrolTarget?: Location | null;
   activity?: string;
-  fuel: number; // 0-100
+  fuel: number;
+  recalculatingRoute?: boolean; // 0-100
 }
 
 export interface PoliceStation {
@@ -62,6 +63,10 @@ export interface Incident {
   reward: number;
   severity: number;
   escalated?: boolean;
+  isPhoneCall?: boolean;
+  callStatus?: 'ringing' | 'answered' | 'completed';
+  callerDialogue?: { text: string; options: { text: string; nextStep: number | 'dispatch' }[] }[];
+  currentDialogueStep?: number;
   complication?: {
     message: string;
     actionLabel?: string;

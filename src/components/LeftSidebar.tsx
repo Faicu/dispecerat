@@ -16,8 +16,8 @@ const getUnitStyles = (type: UnitType, isIdle: boolean) => (isIdle ? IDLE_STYLES
 
 import { OperatorRole } from '../types';
 
-export default function LeftSidebar({ gameState, onPurchase, onRefuelAll, playerRoles }: { gameState: GameState, onPurchase: (type: UnitType) => void, onRefuelAll: () => void, playerRoles: OperatorRole[] }) {
-  const [activeTab, setActiveTab] = useState<'units' | 'logs'>('units');
+export default function LeftSidebar({ gameState, onPurchase, onRefuelAll, playerRoles, activeTab, onTabChange, incidentListContent }: { gameState: GameState, onPurchase: (type: UnitType) => void, onRefuelAll: () => void, playerRoles: OperatorRole[], incidentListContent?: React.ReactNode, activeTab: "units" | "logs" | "incidents", onTabChange: (tab: "units" | "logs" | "incidents") => void }) {
+  
   const [expandedCategories, setExpandedCategories] = useState<string[]>(['police', 'fire', 'ambulance', 'gendarmerie', 'swat', 'helicopter']);
   const [showPurchaseMenu, setShowPurchaseMenu] = useState(false);
   const toggleCategory = (type: string) => setExpandedCategories(prev => prev.includes(type) ? prev.filter(c => c !== type) : [...prev, type]);
@@ -46,19 +46,25 @@ export default function LeftSidebar({ gameState, onPurchase, onRefuelAll, player
   };
 
   return (
-    <div className="w-full md:w-64 border-r border-slate-800 bg-slate-900/50 flex flex-col z-10 relative h-full">
-      <div className="flex border-b border-slate-800 bg-slate-800/80 text-[10px] font-bold uppercase tracking-widest shrink-0">
+    <div className="w-full md:w-80 lg:w-[22rem] shrink-0 border-r border-slate-800 bg-slate-900/50 flex flex-col z-10 relative h-full overflow-hidden">
+      <div className="flex border-b border-slate-800 bg-slate-800/80 text-[10px] font-bold uppercase tracking-wider shrink-0">
         <button 
-          onClick={() => setActiveTab('units')}
-          className={`flex-1 p-3 text-center transition-colors ${activeTab === 'units' ? 'text-blue-400 border-b-2 border-blue-500' : 'text-slate-500 hover:text-slate-300'}`}
+          onClick={() => onTabChange('units')}
+          className={`flex-1 px-2 py-2.5 text-center truncate transition-colors ${activeTab === 'units' ? 'text-blue-400 border-b-2 border-blue-500 font-extrabold' : 'text-slate-400 hover:text-slate-200'}`}
         >
           Unități ({filteredUnitsList.length})
         </button>
         <button 
-          onClick={() => setActiveTab('logs')}
-          className={`flex-1 p-3 text-center transition-colors ${activeTab === 'logs' ? 'text-blue-400 border-b-2 border-blue-500' : 'text-slate-500 hover:text-slate-300'}`}
+          onClick={() => onTabChange('logs')}
+          className={`flex-1 px-2 py-2.5 text-center truncate transition-colors ${activeTab === 'logs' ? 'text-blue-400 border-b-2 border-blue-500 font-extrabold' : 'text-slate-400 hover:text-slate-200'}`}
         >
           Jurnal
+        </button>
+        <button 
+          onClick={() => onTabChange('incidents')}
+          className={`flex-1 px-2 py-2.5 text-center truncate transition-colors ${activeTab === 'incidents' ? 'text-blue-400 border-b-2 border-blue-500 font-extrabold' : 'text-slate-400 hover:text-slate-200'}`}
+        >
+          Incidente
         </button>
       </div>
 
@@ -131,7 +137,7 @@ export default function LeftSidebar({ gameState, onPurchase, onRefuelAll, player
           );
         })}
           </>
-        ) : (
+        ) : activeTab === 'logs' ? (
           <div className="space-y-2">
             {(gameState.logs || []).map(log => (
               <div key={log.id} className="p-2 bg-slate-800/40 border border-slate-700/50 rounded flex flex-col gap-1 text-[10px]">
@@ -152,6 +158,8 @@ export default function LeftSidebar({ gameState, onPurchase, onRefuelAll, player
               <div className="text-center text-slate-500 text-xs italic mt-4">Niciun eveniment recent.</div>
             )}
           </div>
+        ) : (
+           <div className="h-full relative">{incidentListContent}</div>
         )}
       </div>
       <div className="p-2 bg-slate-800/50 border-t border-slate-800 shrink-0">

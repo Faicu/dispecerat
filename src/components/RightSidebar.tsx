@@ -24,27 +24,29 @@ export default function RightSidebar({ gameState, selectedIncidentId, onSelectIn
   const isMyIncident = (incident: GameState['incidents'][string]) =>
     incident.requiredUnits.some(u => playerRoles.includes(ROLE_FOR_TYPE[u] as OperatorRole));
 
+  const isCallInProgress = (i: any) => i.isPhoneCall && i.callStatus !== 'completed';
   const incidentsList = Object.values(gameState.incidents)
+    .filter(i => !isCallInProgress(i))
     .filter(i => myIncidentsOnly ? isMyIncident(i) : true)
     .sort((a, b) => b.severity !== a.severity ? b.severity - a.severity : b.createdAt - a.createdAt);
 
-  const myCount = Object.values(gameState.incidents).filter(isMyIncident).length;
+  const myCount = Object.values(gameState.incidents).filter(i => !isCallInProgress(i) && isMyIncident(i)).length;
 
   return (
-    <div className="w-full md:w-72 border-l border-slate-800 bg-slate-900/50 flex flex-col z-10 relative h-full">
+    <div className="w-full flex flex-col z-10 relative h-full">
       <div className="flex-1 flex flex-col overflow-hidden">
         {/* Header */}
-        <div className="px-3 py-2 bg-slate-800/80 flex items-center justify-between shrink-0">
-          <div className="flex items-center gap-2">
-            <span className="text-[10px] font-bold uppercase tracking-widest">Incidente Active</span>
-            <span className="text-[10px] font-mono text-red-400 bg-red-900/30 px-1.5 py-0.5 rounded-full">
+        <div className="px-2.5 py-2 bg-slate-800/80 flex items-center justify-between shrink-0 gap-1 overflow-hidden">
+          <div className="flex items-center gap-1.5 min-w-0">
+            <span className="text-[10px] font-bold uppercase tracking-wider truncate">Incidente Active</span>
+            <span className="text-[10px] font-mono text-red-400 bg-red-900/30 px-1.5 py-0.5 rounded-full shrink-0">
               {incidentsList.length}
             </span>
           </div>
           <button
             onClick={() => setMyIncidentsOnly(v => !v)}
             title={myIncidentsOnly ? 'Arată toate incidentele' : 'Arată doar incidentele mele'}
-            className={`flex items-center gap-1 px-2 py-1 rounded border text-[9px] font-bold uppercase tracking-wider transition-colors ${myIncidentsOnly ? 'bg-sky-900/50 border-sky-600 text-sky-300' : 'bg-slate-800 border-slate-700 text-slate-500 hover:text-slate-300'}`}
+            className={`flex items-center gap-1 px-1.5 py-1 rounded border text-[8.5px] font-bold uppercase tracking-wider shrink-0 transition-colors ${myIncidentsOnly ? 'bg-sky-900/50 border-sky-600 text-sky-300' : 'bg-slate-800 border-slate-700 text-slate-400 hover:text-slate-200'}`}
           >
             <Filter size={10} />
             {myIncidentsOnly ? `Ale mele (${myCount})` : 'Toate'}

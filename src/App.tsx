@@ -6,6 +6,7 @@ import TopNav from './components/TopNav';
 import LeftSidebar from './components/LeftSidebar';
 import RightSidebar from './components/RightSidebar';
 import BottomConsole from './components/BottomConsole';
+import { PhoneCallModal } from './components/PhoneCallModal';
 import { playClick, playDispatch, playIncident, playIncidentByType, playSuccess, playError, playSiren, speak, playRadioChatter } from './audio';
 import { UNIT_PRICES } from './constants';
 import { Shield, Map as MapIcon, AlertTriangle, Command } from 'lucide-react';
@@ -42,6 +43,7 @@ export default function App() {
   const [selectedUnitId, setSelectedUnitId] = useState<string | null>(null);
   const [playerName, setPlayerName] = useState('');
   const [selectedRoles, setSelectedRoles] = useState<OperatorRole[]>([]);
+  const [leftTab, setLeftTab] = useState<'units' | 'logs' | 'incidents'>('units');
   const [mobileView, setMobileView] = useState<'map' | 'units' | 'incidents' | 'console'>('map');
   const [isJoined, setIsJoined] = useState(false);
   const [toasts, setToasts] = useState<{ id: number; msg: string; type: 'cod3' | 'wave' | 'success' }[]>([]);
@@ -83,6 +85,7 @@ export default function App() {
          const newIncidentId = Object.keys(newState.incidents || {}).find(id => !Object.keys(gameState.incidents || {}).includes(id));
          if (newIncidentId) {
            const inc = newState.incidents[newIncidentId];
+           if (inc.isPhoneCall && inc.callStatus !== 'completed') return;
            if (inc.severity >= 4) {
              playSiren();
              speak(`Atenție, incident COD 3 raportat: ${inc.name}`);
@@ -282,18 +285,40 @@ export default function App() {
     }
   };
 
+  const handleSelectIncident = (id: string | null) => {
+    setSelectedIncidentId(id);
+    if (id) {
+      setLeftTab('incidents');
+    }
+  };
+
+  const hasActiveIncident = Boolean(selectedIncidentId && gameState?.incidents?.[selectedIncidentId] && !gameState.incidents[selectedIncidentId].resolved);
+  const hasActiveUnit = Boolean(selectedUnitId && gameState?.units?.[selectedUnitId]);
+  const showRightConsole = hasActiveIncident || hasActiveUnit || mobileView === 'console';
+
   return (
     <div className="w-screen h-screen bg-slate-950 text-slate-300 font-sans flex flex-col overflow-hidden select-none relative">
       <div aria-hidden="true" className="absolute inset-0 pointer-events-none scanlines z-50 opacity-20 mix-blend-overlay"></div>
       <TopNav playerName={playerName} gameState={gameState} onToggleBreak={() => socket.emit('toggleBreak')} onReset={() => socket.emit('restartGame')} onSetMultiplier={v => socket.emit('setIncidentMultiplier', { multiplier: v })} />
       
       <div className="flex-1 flex overflow-hidden relative">
-        <div className={`absolute inset-0 z-30 md:relative md:w-64 md:z-0 ${mobileView === 'units' ? 'flex' : 'hidden md:flex'}`}>
+        <div className={`absolute inset-0 z-30 md:relative md:w-80 lg:w-[22rem] shrink-0 md:z-0 ${mobileView === 'units' || mobileView === 'incidents' ? 'flex' : 'hidden md:flex'}`}>
           <LeftSidebar
           gameState={gameState}
           onPurchase={handlePurchase}
           onRefuelAll={() => socket.emit('refuelAll')}
           playerRoles={selectedRoles}
+          activeTab={leftTab}
+          onTabChange={setLeftTab}
+          incidentListContent={
+            <RightSidebar
+              gameState={gameState}
+              selectedIncidentId={selectedIncidentId}
+              onSelectIncident={handleSelectIncident}
+              onResolveComplication={(incidentId, optionId) => socket.emit('resolveComplication', { incidentId, optionId })}
+              playerRoles={selectedRoles}
+            />
+          }
         />
         </div>
         
@@ -301,7 +326,7 @@ export default function App() {
           <MapView
             gameState={gameState}
             selectedIncidentId={selectedIncidentId}
-            onSelectIncident={setSelectedIncidentId}
+            onSelectIncident={handleSelectIncident}
             selectedUnitId={selectedUnitId}
             onSelectUnit={handleSelectUnit}
             onMapClick={handleMapClick}
@@ -319,33 +344,25 @@ export default function App() {
           <div className="absolute inset-0 pointer-events-none shadow-[inset_0_0_100px_rgba(15,23,42,0.8)] z-10"></div>
         </div>
         
-        <div className={`absolute inset-0 z-30 md:relative md:w-72 md:z-0 ${mobileView === 'incidents' ? 'flex' : 'hidden md:flex'}`}>
-        <RightSidebar
-          gameState={gameState}
-          selectedIncidentId={selectedIncidentId}
-          onSelectIncident={setSelectedIncidentId}
-          onResolveComplication={(incidentId, optionId) => socket.emit('resolveComplication', { incidentId, optionId })}
-          playerRoles={selectedRoles}
-        />
+        <div className={`absolute inset-0 z-30 md:relative md:w-80 lg:w-96 shrink-0 md:z-0 ${mobileView === 'console' ? 'flex' : 'hidden md:flex'}`}>
+          <BottomConsole 
+            gameState={gameState} 
+            selectedIncidentId={selectedIncidentId}
+            selectedUnitId={selectedUnitId}
+            onDispatch={handleDispatch}
+            onRefuel={handleRefuel}
+            onReturnToBase={handleReturnToBase}
+            playerRoles={selectedRoles}
+          />
         </div>
       </div>
       
-      <div className={`${mobileView === 'console' || mobileView === 'map' ? 'block' : 'hidden md:block'}`}>
-      <BottomConsole 
-        gameState={gameState} 
-        selectedIncidentId={selectedIncidentId}
-        selectedUnitId={selectedUnitId}
-        onDispatch={handleDispatch}
-        onRefuel={handleRefuel}
-        onReturnToBase={handleReturnToBase}
-        playerRoles={selectedRoles}
-      />
-      </div>
+      
       {/* Scanline / Grain Overlay for Game Feel */}
       <div aria-hidden="true" className="fixed inset-0 pointer-events-none bg-[url('https://grainy-gradients.vercel.app/noise.svg')] opacity-[0.03] contrast-150 z-50"></div>
       
       <div className="md:hidden flex bg-slate-900 border-t border-slate-800 text-[10px] font-bold uppercase tracking-wider h-16 shrink-0 pb-2 pt-1 z-40 relative">
-        <button onClick={() => setMobileView('units')} className={`flex-1 flex flex-col items-center justify-center transition-colors ${mobileView === 'units' ? 'text-sky-400' : 'text-slate-500 hover:text-slate-400'}`}>
+        <button onClick={() => { setMobileView('units'); setLeftTab('units'); }} className={`flex-1 flex flex-col items-center justify-center transition-colors ${mobileView === 'units' ? 'text-sky-400' : 'text-slate-500 hover:text-slate-400'}`}>
           <Shield size={20} className="mb-1" />
           Unități
         </button>
@@ -353,7 +370,7 @@ export default function App() {
           <MapIcon size={20} className="mb-1" />
           Hartă
         </button>
-        <button onClick={() => setMobileView('incidents')} className={`flex-1 flex flex-col items-center justify-center relative transition-colors ${mobileView === 'incidents' ? 'text-red-400' : 'text-slate-500 hover:text-slate-400'}`}>
+        <button onClick={() => { setMobileView('incidents'); setLeftTab('incidents'); }} className={`flex-1 flex flex-col items-center justify-center relative transition-colors ${mobileView === 'incidents' ? 'text-red-400' : 'text-slate-500 hover:text-slate-400'}`}>
           <AlertTriangle size={20} className="mb-1" />
           Incidente
           {Object.keys(gameState?.incidents || {}).length > 0 && (
@@ -365,6 +382,34 @@ export default function App() {
           Consolă
         </button>
       </div>
+
+      {/* 112 Emergency Call Modal */}
+      {isJoined && !isPlayerOnBreak && (
+        <PhoneCallModal
+          gameState={gameState}
+          playerName={playerName}
+          playerRoles={selectedRoles}
+          onSelectIncident={(incidentId) => {
+            setSelectedIncidentId(incidentId);
+            if (window.innerWidth < 768) setMobileView('console');
+          }}
+          onAnswer={(incidentId) => {
+            setSelectedIncidentId(incidentId);
+            if (window.innerWidth < 768) setMobileView('console');
+            socket.emit('answerCall', { incidentId, operator: playerName });
+          }}
+          onProgress={(incidentId, nextStep) => {
+            setSelectedIncidentId(incidentId);
+            if (window.innerWidth < 768) setMobileView('console');
+            socket.emit('progressCall', { incidentId, nextStep });
+          }}
+          onDispatch={(unitId, incidentId) => {
+            setSelectedIncidentId(incidentId);
+            playDispatch();
+            socket.emit('dispatchUnit', { unitId, incidentId, operator: playerName });
+          }}
+        />
+      )}
 
       {/* Toast notifications */}
       <div className="fixed top-14 right-3 z-50 flex flex-col gap-2 pointer-events-none">

@@ -1,7 +1,7 @@
 import { GameState } from '../types';
 import { UNIT_THEME, REFUEL_COST } from '../constants';
 import { calculateETA, formatReward } from '../utils';
-
+import { Command } from 'lucide-react';
 import { OperatorRole } from '../types';
 interface BottomConsoleProps {
   playerRoles: OperatorRole[];
@@ -51,16 +51,22 @@ export default function BottomConsole({ gameState, selectedIncidentId, selectedU
 
   if ((!incident || incident.resolved) && !selectedUnit) {
     return (
-      <div className="h-40 border-t border-slate-800 bg-slate-900/90 p-4 flex items-center justify-center z-20 relative">
-        <span className="text-slate-500 font-mono tracking-widest uppercase text-sm">Select an incident or unit to view details</span>
+      <div className="h-full w-full border-l border-slate-800 bg-slate-900/90 p-6 flex flex-col items-center justify-center text-center z-20 relative">
+        <div className="w-12 h-12 rounded-full bg-slate-800 flex items-center justify-center mb-3 text-slate-500 border border-slate-700">
+          <Command size={24} />
+        </div>
+        <h3 className="text-xs font-bold uppercase tracking-wider text-slate-300 mb-1">Consolă Dispecerat</h3>
+        <p className="text-xs text-slate-500 max-w-xs leading-relaxed">
+          Selectează un incident sau o unitate pe hartă ori din listă pentru a-i vedea detaliile și opțiunile de comandă.
+        </p>
       </div>
     );
   }
 
   if (selectedUnit && (!incident || incident.resolved)) {
     return (
-      <div className="h-auto md:h-40 border-t border-slate-800 bg-slate-900/90 p-4 flex flex-col md:flex-row gap-4 md:gap-6 z-20 relative">
-        <div className="w-full md:w-1/3 flex flex-col gap-2">
+      <div className="h-full border-l border-slate-800 bg-slate-900/90 p-4 flex flex-col gap-4 z-20 relative overflow-y-auto">
+        <div className="w-full flex flex-col gap-2">
           <div className="flex items-center gap-2">
             <span className="w-2 h-2 rounded-full bg-emerald-500"></span>
             <span className="text-xs font-bold uppercase tracking-widest text-white">Unit {selectedUnit.name}</span>
@@ -85,7 +91,7 @@ export default function BottomConsole({ gameState, selectedIncidentId, selectedU
             </div>
           </div>
         </div>
-        <div className="flex-1 flex flex-col justify-center md:border-l border-slate-800 md:pl-6 gap-4">
+        <div className="flex-1 flex flex-col justify-start border-t border-slate-800 pt-4 mt-2 gap-4">
            <div className="text-slate-400 text-xs font-mono">
              Pentru a deplasa manual unitatea, dă click pe hartă unde vrei să o trimiți.
            </div>
@@ -115,8 +121,8 @@ export default function BottomConsole({ gameState, selectedIncidentId, selectedU
   if (!incident) return null;
 
   return (
-    <div className="h-auto md:h-48 min-h-[16rem] md:min-h-0 border-t border-slate-800 bg-slate-900/90 p-4 flex flex-col md:flex-row gap-4 md:gap-6 z-20 relative overflow-y-auto">
-      <div className="w-full md:w-1/2 flex flex-col gap-2 shrink-0">
+    <div className="h-full border-l border-slate-800 bg-slate-900/90 p-4 flex flex-col gap-4 z-20 relative overflow-y-auto">
+      <div className="w-full flex flex-col gap-2 shrink-0">
         <div className="flex items-center gap-2 justify-between">
           <div className="flex items-center gap-2">
             <span className={`w-2 h-2 rounded-full ${incident.severity === 5 ? 'bg-purple-500 animate-pulse' : incident.severity === 4 ? 'bg-red-500 animate-pulse' : incident.severity === 3 ? 'bg-orange-500' : incident.severity === 2 ? 'bg-yellow-500' : 'bg-blue-500'}`}></span>
@@ -194,7 +200,7 @@ export default function BottomConsole({ gameState, selectedIncidentId, selectedU
 
       <div className="flex-1 flex flex-col gap-2">
         <span className="text-[10px] text-slate-500 uppercase font-bold tracking-tighter">Dispatch Console (Available Units)</span>
-        <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-2 flex-1 overflow-y-auto content-start pr-2">
+        <div className="grid grid-cols-1 xl:grid-cols-2 gap-2 flex-1 overflow-y-auto content-start pr-2">
           {availableUnits.map(unit => (
             <button 
               key={unit.id}
