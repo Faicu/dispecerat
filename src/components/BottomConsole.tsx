@@ -36,7 +36,18 @@ export default function BottomConsole({ gameState, selectedIncidentId, selectedU
     u.state === 'routing' || 
     u.state === 'transporting') &&
     hasRoleForUnit(u.type)
-  );
+  ).sort((a, b) => {
+    const aAvail = a.state === 'idle' || a.state === 'patrolling' ? 1 : 0;
+    const bAvail = b.state === 'idle' || b.state === 'patrolling' ? 1 : 0;
+    if (aAvail !== bAvail) return bAvail - aAvail;
+
+    if (incident) {
+      const etaA = calculateETA(a, incident.location, gameState);
+      const etaB = calculateETA(b, incident.location, gameState);
+      return etaA - etaB;
+    }
+    return 0;
+  });
 
   if ((!incident || incident.resolved) && !selectedUnit) {
     return (
@@ -191,9 +202,16 @@ export default function BottomConsole({ gameState, selectedIncidentId, selectedU
               className={`flex flex-col justify-start gap-1 ${unit.state === 'idle' ? 'bg-slate-800/80 border-slate-600 hover:bg-slate-700' : 'bg-orange-900/40 border-orange-800/80 hover:bg-orange-800/60'} border-2 rounded text-xs text-white py-2 px-3 transition-colors shadow-sm truncate text-left`}
               title={unit.name}
             >
-              <div className="flex items-center gap-1.5 w-full">
-                <div className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${UNIT_THEME[unit.type].dot}`}></div> 
-                <span className="uppercase font-bold tracking-wide truncate">{unit.name}</span>
+              <div className="flex justify-between items-center w-full gap-1">
+                <div className="flex items-center gap-1.5 min-w-0">
+                  <div className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${UNIT_THEME[unit.type].dot}`}></div> 
+                  <span className="uppercase font-bold tracking-wide truncate">{unit.name}</span>
+                </div>
+                {incident && (
+                  <span className="text-[9px] text-slate-300 font-mono whitespace-nowrap">
+                    {calculateETA(unit, incident.location, gameState)}s
+                  </span>
+                )}
               </div>
               {unit.state !== 'idle' && (
                 <span className="text-[8px] text-orange-400 font-mono uppercase truncate w-full pl-3">- {unit.state}</span>
