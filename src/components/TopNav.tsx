@@ -103,7 +103,7 @@ export default function TopNav({
         <div className="h-4 w-px bg-slate-800" />
         <div className="flex flex-col items-center">
           <span className={`font-bold ${wave.color}`}>{wave.label}</span>
-          <span className="text-slate-600 text-[8px] uppercase tracking-wider">Val</span>
+          <span className="text-slate-600 text-[8px] uppercase tracking-wider">Starea</span>
         </div>
       </div>
 

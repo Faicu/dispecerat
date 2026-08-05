@@ -49,15 +49,16 @@ const getIncidentIcon = (type: IncidentType, isSelected: boolean, severity: 1 | 
 
   const iconSvg = resolved ? INCIDENT_ICON_SVG.resolved : (INCIDENT_ICON_SVG[type] ?? INCIDENT_ICON_SVG.default);
 
+  const sqSize = size * 0.7;
   return new L.DivIcon({
     className: 'custom-icon',
     html: `
-      <div class="relative flex items-center justify-center cursor-pointer transition-transform ${isSelected ? 'scale-110 z-40' : ''}" style="width: ${size}px; height: ${size}px;">
-        <div class="absolute inset-0 rounded-full ${pulse}" style="background-color: ${color}; opacity: ${isSelected ? '0.3' : '0.15'};"></div>
-        <div class="rounded-full border-2 border-white flex items-center justify-center text-white" style="width: ${size*0.75}px; height: ${size*0.75}px; background-color: ${color}; box-shadow: ${shadow}">
-          ${iconSvg}
+      <div class="relative flex items-center justify-center cursor-pointer ${isSelected ? 'scale-110 z-40' : ''}" style="width:${size}px;height:${size}px;">
+        ${(isSelected || severity === 3) && !resolved ? `<div class="absolute inset-0 ${pulse}" style="background-color:${color};opacity:0.2;transform:rotate(45deg);border-radius:2px;"></div>` : ''}
+        <div class="flex items-center justify-center text-white border-2 border-white" style="width:${sqSize}px;height:${sqSize}px;background-color:${color};box-shadow:${shadow};transform:rotate(45deg);border-radius:2px;">
+          <div style="transform:rotate(-45deg)">${iconSvg}</div>
         </div>
-        ${(severity === 3 && !resolved) ? `<div class="absolute -top-1 -right-1 w-3 h-3 bg-red-500 rounded-full animate-pulse border-2 border-white"></div>` : ''}
+        ${(severity === 3 && !resolved) ? `<div class="absolute -top-1 -right-1 w-3 h-3 bg-red-500 rounded-full animate-pulse border border-white" style="border-width:1px"></div>` : ''}
       </div>
     `,
     iconSize: [size, size],

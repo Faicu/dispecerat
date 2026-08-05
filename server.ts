@@ -342,7 +342,7 @@ const tick = (io: Server) => {
     if (gameState.wavePhase === 'calm') addLog('✅ Perioadă liniștită — situație sub control.', 'success');
     stateChanged = true;
   }
-  const WAVE_RATES: Record<string, number> = { calm: 0.0005, building: 0.0015, wave: 0.004, decay: 0.001 };
+  const WAVE_RATES: Record<string, number> = { calm: 0.0008, building: 0.002, wave: 0.006, decay: 0.0015 };
   gameState.incidentRate = WAVE_RATES[gameState.wavePhase];
   
 
@@ -730,7 +730,7 @@ const tick = (io: Server) => {
   });
 
   // Randomly spawn new incidents based on wave rate
-  if (Math.random() < gameState.incidentRate && Object.keys(gameState.incidents).length < 15) {
+  if (Math.random() < gameState.incidentRate && Object.keys(gameState.incidents).length < 25) {
     spawnIncident();
     stateChanged = true;
   }

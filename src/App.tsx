@@ -41,9 +41,17 @@ export default function App() {
   const [selectedRoles, setSelectedRoles] = useState<OperatorRole[]>([]);
   const [mobileView, setMobileView] = useState<'map' | 'units' | 'incidents' | 'console'>('map');
   const [isJoined, setIsJoined] = useState(false);
-  
+  const [toasts, setToasts] = useState<{ id: number; msg: string; type: 'cod3' | 'wave' | 'success' }[]>([]);
+
+  const addToast = (msg: string, type: 'cod3' | 'wave' | 'success') => {
+    const id = Date.now();
+    setToasts(t => [...t.slice(-3), { id, msg, type }]);
+    setTimeout(() => setToasts(t => t.filter(x => x.id !== id)), 5000);
+  };
+
   const prevIncidentsRef = useRef<number>(0);
   const prevResolvedRef = useRef<number>(0);
+  const prevWaveRef = useRef<string>('');
 
   useEffect(() => {
     if (window.speechSynthesis) {
@@ -63,6 +71,7 @@ export default function App() {
            if (inc.severity === 3) {
              playSiren();
              speak(`Atenție, incident COD 3 raportat: ${inc.name}`);
+             addToast(`🚨 COD 3: ${inc.name}`, 'cod3');
            } else {
              playIncidentByType(inc.type);
              speak(`Incident nou: ${inc.name}`);
@@ -75,8 +84,15 @@ export default function App() {
       if (resolvedCount > prevResolvedRef.current && prevResolvedRef.current > 0) {
          playSuccess();
          speak('Incident soluționat cu succes.');
+         addToast('✅ Incident soluționat', 'success');
       }
       prevResolvedRef.current = resolvedCount;
+
+      if (newState.wavePhase !== prevWaveRef.current) {
+        if (newState.wavePhase === 'wave') addToast('⚡ Val de incidente în desfășurare!', 'wave');
+        if (newState.wavePhase === 'calm') addToast('🟢 Perioadă liniștită', 'success');
+        prevWaveRef.current = newState.wavePhase ?? '';
+      }
     });
 
     return () => {
@@ -258,10 +274,9 @@ export default function App() {
       
       <div className="flex-1 flex overflow-hidden relative">
         <div className={`absolute inset-0 z-30 md:relative md:w-64 md:z-0 ${mobileView === 'units' ? 'flex' : 'hidden md:flex'}`}>
-          <LeftSidebar 
-          gameState={gameState} 
-          onPurchase={handlePurchase} 
-          onSetIncidentRate={(rate) => socket.emit('setIncidentRate', { rate })}
+          <LeftSidebar
+          gameState={gameState}
+          onPurchase={handlePurchase}
           onRefuelAll={() => socket.emit('refuelAll')}
           playerRoles={selectedRoles}
         />
@@ -333,6 +348,24 @@ export default function App() {
           <Command size={20} className="mb-1" />
           Consolă
         </button>
+      </div>
+
+      {/* Toast notifications */}
+      <div className="fixed top-14 right-3 z-50 flex flex-col gap-2 pointer-events-none">
+        {toasts.map(toast => (
+          <div
+            key={toast.id}
+            className={`px-3 py-2 rounded border text-xs font-bold shadow-xl backdrop-blur-sm animate-in slide-in-from-right-4 duration-300 max-w-[260px] ${
+              toast.type === 'cod3'
+                ? 'bg-red-950/90 border-red-700 text-red-300'
+                : toast.type === 'wave'
+                ? 'bg-yellow-950/90 border-yellow-700 text-yellow-300'
+                : 'bg-emerald-950/90 border-emerald-700 text-emerald-300'
+            }`}
+          >
+            {toast.msg}
+          </div>
+        ))}
       </div>
     </div>
   );

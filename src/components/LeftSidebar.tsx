@@ -16,7 +16,7 @@ const getUnitStyles = (type: UnitType, isIdle: boolean) => (isIdle ? IDLE_STYLES
 
 import { OperatorRole } from '../types';
 
-export default function LeftSidebar({ gameState, onPurchase, onSetIncidentRate, onRefuelAll, playerRoles }: { gameState: GameState, onPurchase: (type: UnitType) => void, onSetIncidentRate: (rate: number) => void, onRefuelAll: () => void, playerRoles: OperatorRole[] }) {
+export default function LeftSidebar({ gameState, onPurchase, onRefuelAll, playerRoles }: { gameState: GameState, onPurchase: (type: UnitType) => void, onRefuelAll: () => void, playerRoles: OperatorRole[] }) {
   const [activeTab, setActiveTab] = useState<'units' | 'logs'>('units');
   const [expandedCategories, setExpandedCategories] = useState<string[]>(['police', 'fire', 'ambulance', 'gendarmerie', 'swat', 'helicopter']);
   const [showPurchaseMenu, setShowPurchaseMenu] = useState(false);
@@ -186,18 +186,6 @@ export default function LeftSidebar({ gameState, onPurchase, onSetIncidentRate, 
               })}
            </div>
          )}
-         <div className="mt-2 pt-2 border-t border-slate-700/50">
-            <div className="flex justify-between items-center mb-1">
-              <span className="text-[9px] uppercase font-bold text-slate-500">Rată Incidente</span>
-              <span className="text-[9px] uppercase font-bold text-sky-400">x{gameState.incidentRate || 1}</span>
-            </div>
-            <div className="flex gap-1">
-              <button onClick={() => onSetIncidentRate(0.5)} className={`flex-1 text-[9px] font-bold p-1 rounded border ${gameState.incidentRate === 0.5 ? 'bg-sky-900/40 border-sky-700 text-sky-400' : 'bg-slate-800 border-slate-700 text-slate-400'}`}>0.5x</button>
-              <button onClick={() => onSetIncidentRate(1)} className={`flex-1 text-[9px] font-bold p-1 rounded border ${gameState.incidentRate === 1 ? 'bg-sky-900/40 border-sky-700 text-sky-400' : 'bg-slate-800 border-slate-700 text-slate-400'}`}>1x</button>
-              <button onClick={() => onSetIncidentRate(2)} className={`flex-1 text-[9px] font-bold p-1 rounded border ${gameState.incidentRate === 2 ? 'bg-sky-900/40 border-sky-700 text-sky-400' : 'bg-slate-800 border-slate-700 text-slate-400'}`}>2x</button>
-              <button onClick={() => onSetIncidentRate(5)} className={`flex-1 text-[9px] font-bold p-1 rounded border ${gameState.incidentRate === 5 ? 'bg-sky-900/40 border-sky-700 text-sky-400' : 'bg-slate-800 border-slate-700 text-slate-400'}`}>5x</button>
-            </div>
-         </div>
          <div className="mt-2 pt-2 border-t border-slate-700/50 flex gap-2">
             <button onClick={onRefuelAll} className="flex-1 bg-orange-900/40 border border-orange-800 hover:bg-orange-800/60 hover:border-orange-500 text-orange-300 p-1.5 rounded transition-colors text-[10px] uppercase font-bold tracking-widest flex flex-col items-center justify-center">
               <span>Realimentare Gen.</span>
