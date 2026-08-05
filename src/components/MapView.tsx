@@ -104,7 +104,10 @@ function IncidentMarker({ incident, isSelected, onSelect }: {
       position={[incident.location.lat, incident.location.lng]}
       icon={icon}
       eventHandlers={{
-        click: () => onSelect(isSelected ? null : incident.id),
+        click: (e) => {
+          L.DomEvent.stopPropagation(e.originalEvent);
+          onSelect(isSelected ? null : incident.id);
+        },
       }}
     />
   );
@@ -127,7 +130,10 @@ function UnitMarker({ unit, isSelected, onSelect, gameState }: {
       position={[unit.location.lat, unit.location.lng]}
       icon={icon}
       eventHandlers={{
-        click: () => onSelect(isSelected ? null : unit.id),
+        click: (e) => {
+          L.DomEvent.stopPropagation(e.originalEvent);
+          onSelect(isSelected ? null : unit.id);
+        },
       }}
     >
       {unit.route && unit.route.length > 0 && (

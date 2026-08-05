@@ -57,6 +57,14 @@ export default function App() {
   const prevIncidentsRef = useRef<number>(0);
   const prevResolvedRef = useRef<number>(0);
   const prevWaveRef = useRef<string>('');
+  const selectedIncidentIdRef = useRef<string | null>(null);
+  const selectedRolesRef = useRef<OperatorRole[]>([]);
+  const gameStateRef = useRef<GameState>(EMPTY_GAME_STATE);
+
+  // Keep refs in sync so keyboard handler always has current values
+  useEffect(() => { selectedIncidentIdRef.current = selectedIncidentId; }, [selectedIncidentId]);
+  useEffect(() => { selectedRolesRef.current = selectedRoles; }, [selectedRoles]);
+  useEffect(() => { gameStateRef.current = gameState; }, [gameState]);
 
   useEffect(() => {
     if (window.speechSynthesis) {
@@ -75,6 +83,67 @@ export default function App() {
       socket.off('connect', onConnect);
     };
   }, [isJoined, playerName, selectedRoles]);
+
+  // Keyboard shortcuts (only when joined and no input focused)
+  useEffect(() => {
+    if (!isJoined) return;
+    const handleKey = (e: KeyboardEvent) => {
+      const tag = (e.target as HTMLElement).tagName;
+      if (tag === 'INPUT' || tag === 'TEXTAREA') return;
+
+      if (e.key === 'Escape') {
+        setSelectedIncidentId(null);
+        setSelectedUnitId(null);
+        return;
+      }
+
+      if (e.key === ' ') {
+        e.preventDefault();
+        const gs = gameStateRef.current;
+        const unattended = Object.values(gs.incidents)
+          .filter(i => !i.resolved && i.assignedUnits.length === 0 && !(i.isPhoneCall && i.callStatus !== 'completed'))
+          .sort((a, b) => b.severity - a.severity);
+        if (unattended.length > 0) {
+          const cur = unattended.findIndex(i => i.id === selectedIncidentIdRef.current);
+          const next = unattended[(cur + 1) % unattended.length];
+          setSelectedIncidentId(next.id);
+          setLeftTab('incidents');
+        }
+        return;
+      }
+
+      const num = parseInt(e.key);
+      if (num >= 1 && num <= 9) {
+        const incId = selectedIncidentIdRef.current;
+        if (!incId) return;
+        const gs = gameStateRef.current;
+        const inc = gs.incidents[incId];
+        if (!inc || inc.resolved) return;
+        const roles = selectedRolesRef.current;
+        const getRoleForType = (t: string) => {
+          if (t === 'police' || t === 'swat' || t === 'helicopter') return 'police';
+          if (t === 'fire') return 'fire';
+          if (t === 'ambulance') return 'ambulance';
+          if (t === 'gendarmerie') return 'gendarmerie';
+          return null;
+        };
+        const available = Object.values(gs.units)
+          .filter(u => (u.state === 'idle' || u.state === 'patrolling') && roles.includes(getRoleForType(u.type) as OperatorRole))
+          .sort((a, b) => {
+            const dA = Math.pow(a.location.lat - inc.location.lat, 2) + Math.pow(a.location.lng - inc.location.lng, 2);
+            const dB = Math.pow(b.location.lat - inc.location.lat, 2) + Math.pow(b.location.lng - inc.location.lng, 2);
+            return dA - dB;
+          });
+        const unit = available[num - 1];
+        if (unit) {
+          playDispatch();
+          socket.emit('dispatchUnit', { unitId: unit.id, incidentId: incId, operator: playerName });
+        }
+      }
+    };
+    window.addEventListener('keydown', handleKey);
+    return () => window.removeEventListener('keydown', handleKey);
+  }, [isJoined, playerName]);
 
   useEffect(() => {
     socket.on('stateUpdate', (newState: GameState) => {
@@ -302,11 +371,32 @@ export default function App() {
   const hasActiveUnit = Boolean(selectedUnitId && gameState?.units?.[selectedUnitId]);
   const showRightConsole = hasActiveIncident || hasActiveUnit || mobileView === 'console';
 
+  // Incidents of severity 4-5 with no assigned units for >30s
+  const urgentUnattended = Object.values(gameState.incidents).filter(inc =>
+    !inc.resolved &&
+    inc.severity >= 4 &&
+    inc.assignedUnits.length === 0 &&
+    Date.now() - inc.createdAt > 30000 &&
+    !(inc.isPhoneCall && inc.callStatus !== 'completed')
+  );
+
   return (
     <div className="w-screen h-screen bg-slate-950 text-slate-300 font-sans flex flex-col overflow-hidden select-none relative">
       <div aria-hidden="true" className="absolute inset-0 pointer-events-none scanlines z-50 opacity-20 mix-blend-overlay"></div>
       <TopNav playerName={playerName} gameState={gameState} onToggleBreak={() => socket.emit('toggleBreak')} onReset={() => socket.emit('restartGame')} onSetMultiplier={v => socket.emit('setIncidentMultiplier', { multiplier: v })} />
-      
+
+      {urgentUnattended.length > 0 && (
+        <div
+          className="bg-red-950/95 border-b border-red-700 text-red-300 text-[10px] font-bold uppercase tracking-widest px-4 py-1.5 flex items-center gap-2 animate-pulse cursor-pointer shrink-0 z-40"
+          onClick={() => { handleSelectIncident(urgentUnattended[0].id); }}
+        >
+          <span className="w-2 h-2 rounded-full bg-red-500 animate-ping shrink-0" />
+          {urgentUnattended.length === 1
+            ? `⚠ Incident COD ${urgentUnattended[0].severity} fără unitate: ${urgentUnattended[0].name} — acționează acum!`
+            : `⚠ ${urgentUnattended.length} incidente de urgență fără unități alocate!`}
+        </div>
+      )}
+
       <div className="flex-1 flex overflow-hidden relative">
         <div className={`absolute inset-0 z-30 md:relative md:w-80 lg:w-[22rem] shrink-0 md:z-0 ${mobileView === 'units' || mobileView === 'incidents' ? 'flex' : 'hidden md:flex'}`}>
           <LeftSidebar
@@ -385,7 +475,15 @@ export default function App() {
             <span className="absolute top-1 right-[25%] w-2 h-2 bg-red-500 rounded-full animate-pulse" />
           )}
         </button>
-        <button onClick={() => setMobileView('console')} className={`flex-1 flex flex-col items-center justify-center transition-colors ${mobileView === 'console' ? 'text-yellow-400' : 'text-slate-500 hover:text-slate-400'}`}>
+        <button onClick={() => {
+          setMobileView('console');
+          if (!selectedIncidentId) {
+            const topIncident = Object.values(gameState.incidents)
+              .filter(i => !i.resolved && !(i.isPhoneCall && i.callStatus !== 'completed'))
+              .sort((a, b) => b.severity - a.severity)[0];
+            if (topIncident) setSelectedIncidentId(topIncident.id);
+          }
+        }} className={`flex-1 flex flex-col items-center justify-center transition-colors ${mobileView === 'console' ? 'text-yellow-400' : 'text-slate-500 hover:text-slate-400'}`}>
           <Command size={20} className="mb-1" />
           Consolă
         </button>

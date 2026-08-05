@@ -222,6 +222,16 @@ if (!savedGame) {
 }
 
 let lastPhoneCallTime = 0;
+let lastDisasterTime = Date.now() - 4 * 60 * 1000; // allow first disaster after ~1 min
+
+const RADIO_MESSAGES: Record<string, string[]> = {
+  police: ['Zona securizată. Menținem perimetrul.', 'Subiect identificat. Continuăm intervenția.', 'Avem martori la fața locului.', 'Solicit backup imediat!'],
+  fire: ['Furtunurile sunt în funcțiune.', 'Avem victime. Solicităm ambulanța.', 'Focul este sub control.', 'Clădirea a fost evacuată cu succes.'],
+  ambulance: ['Pacient stabilizat. Ne deplasăm la spital.', 'Victimă în stare critică!', 'Acordăm primul ajutor la fața locului.', 'Solicităm SMURD aerian!'],
+  gendarmerie: ['Ordinea publică restabilită.', 'Evacuăm zona conform protocolului.', 'Mulțimea dispersată fără incidente.'],
+  swat: ['Zonă securizată. Niciun suspect activ.', 'Intrăm în clădire — asigurați accesul!', 'Suspect imobilizat.'],
+  helicopter: ['Supraveghere aeriană activă.', 'Confirmăm vizual de la altitudine.', 'Urmărim vehiculul suspect pe direcția nord.'],
+};
 
 const spawnIncident = () => {
   const template = incidentTypes[Math.floor(Math.random() * incidentTypes.length)];
@@ -800,8 +810,6 @@ const tick = (io: Server) => {
             
             // Remove incident after 3 seconds
             setTimeout(() => {
-              const reward = incidentTypes.find(t => t.type === incident.type && t.name === incident.name)?.reward || 1000;
-              gameState.budget += reward;
               delete gameState.incidents[incident.id];
             }, 3000);
           }
@@ -835,6 +843,55 @@ const tick = (io: Server) => {
   if (Math.random() < effectiveRate && activeIncidents < 40) {
     spawnIncident();
     stateChanged = true;
+  }
+
+  // Natural disaster event — rare, spawns 8-12 high-severity incidents at once
+  const DISASTER_COOLDOWN = 5 * 60 * 1000;
+  if (Date.now() - lastDisasterTime > DISASTER_COOLDOWN && Math.random() < 0.0003 && activeIncidents < 25) {
+    lastDisasterTime = Date.now();
+    const disasterTemplates = incidentTypes.filter(t => ['explosion', 'rescue', 'accident', 'fire'].includes(t.type) && t.severity >= 3);
+    const count = 8 + Math.floor(Math.random() * 5);
+    for (let i = 0; i < count; i++) {
+      const template = disasterTemplates[Math.floor(Math.random() * disasterTemplates.length)];
+      const id = `i${incidentIdCounter++}`;
+      gameState.incidents[id] = {
+        id,
+        name: `[DEZASTRU] ${template.name}`,
+        type: template.type,
+        location: getRandomLocation(),
+        address: 'Se localizează...',
+        description: template.desc,
+        imageUrl: template.img,
+        resolved: false,
+        isMoving: false,
+        isResolving: false,
+        resolutionProgress: 0,
+        activities: ['URGENȚĂ! Parte a unui dezastru natural. Intervenție imediată necesară!'],
+        requiredUnits: [...template.req],
+        assignedUnits: [],
+        createdAt: Date.now(),
+        reward: template.reward * 2,
+        severity: Math.min(5, template.severity + 1),
+      };
+      getAddress(gameState.incidents[id].location.lat, gameState.incidents[id].location.lng).then(addr => {
+        if (gameState.incidents[id]) gameState.incidents[id].address = addr;
+      });
+    }
+    addLog(`🔴 DEZASTRU NATURAL! ${count} incidente critice raportate simultan în tot Bucureștiul!`, 'error');
+    stateChanged = true;
+  }
+
+  // Radio chat — units on scene occasionally send realistic radio messages
+  if (Math.random() < 0.008) {
+    const onSceneUnits = Object.values(gameState.units).filter(u => u.state === 'on_scene');
+    if (onSceneUnits.length > 0) {
+      const unit = onSceneUnits[Math.floor(Math.random() * onSceneUnits.length)];
+      const messages = RADIO_MESSAGES[unit.type];
+      if (messages) {
+        addLog(`📻 ${unit.name}: "${messages[Math.floor(Math.random() * messages.length)]}"`, 'info');
+        stateChanged = true;
+      }
+    }
   }
 
   // Handle rented operators expiration and AI dispatch
@@ -1155,14 +1212,24 @@ async function startServer() {
               incident.assignedUnits = incident.assignedUnits.filter(uid => uid !== unitId);
            }
         }
-        
+
+        const nearestOf = (list: { id: string; location: { lat: number; lng: number } }[]) => {
+          let best = list[0];
+          let minD = Infinity;
+          for (const s of list) {
+            const d = Math.pow(s.location.lat - unit.location.lat, 2) + Math.pow(s.location.lng - unit.location.lng, 2);
+            if (d < minD) { minD = d; best = s; }
+          }
+          return best;
+        };
+
         let targetBase = { id: '', location: { lat: 0, lng: 0 } };
         if (unit.type === 'ambulance') {
-           targetBase = hospitals[0];
+           targetBase = nearestOf(hospitals);
         } else if (unit.type === 'fire') {
-           targetBase = fireStations[0];
+           targetBase = nearestOf(fireStations);
         } else {
-           targetBase = policeStations[0];
+           targetBase = nearestOf(policeStations);
         }
 
         unit.state = 'transporting'; // Use transporting state as returning state
