@@ -199,7 +199,7 @@ export default function BottomConsole({ gameState, selectedIncidentId, selectedU
             <button 
               key={unit.id}
               onClick={() => onDispatch(unit.id)}
-              className={`flex flex-col justify-start gap-1 ${unit.state === 'idle' ? 'bg-slate-800/80 border-slate-600 hover:bg-slate-700' : 'bg-orange-900/40 border-orange-800/80 hover:bg-orange-800/60'} border-2 rounded text-xs text-white py-2 px-3 transition-colors shadow-sm truncate text-left`}
+              className={`flex flex-col justify-start gap-1 ${unit.state === 'idle' ? 'bg-slate-800/80 border-slate-600 hover:bg-slate-700' : 'bg-orange-900/40 border-orange-800/80 hover:bg-orange-800/60'} border-2 rounded text-xs text-white py-2 px-3 transition-colors shadow-sm text-left`}
               title={unit.name}
             >
               <div className="flex justify-between items-center w-full gap-1">
