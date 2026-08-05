@@ -16,7 +16,7 @@ const getUnitStyles = (type: UnitType, isIdle: boolean) => (isIdle ? IDLE_STYLES
 
 import { OperatorRole } from '../types';
 
-export default function LeftSidebar({ gameState, onPurchase, onRefuelAll, playerRoles, activeTab, onTabChange, incidentListContent }: { gameState: GameState, onPurchase: (type: UnitType) => void, onRefuelAll: () => void, playerRoles: OperatorRole[], incidentListContent?: React.ReactNode, activeTab: "units" | "logs" | "incidents", onTabChange: (tab: "units" | "logs" | "incidents") => void }) {
+export default function LeftSidebar({ gameState, onPurchase, onRefuelAll, playerRoles, activeTab, onTabChange, incidentListContent, selectedUnitId, onSelectUnit }: { gameState: GameState, onPurchase: (type: UnitType) => void, onRefuelAll: () => void, playerRoles: OperatorRole[], incidentListContent?: React.ReactNode, activeTab: "units" | "logs" | "incidents", onTabChange: (tab: "units" | "logs" | "incidents") => void, selectedUnitId?: string | null, onSelectUnit?: (id: string | null) => void }) {
   
   const [expandedCategories, setExpandedCategories] = useState<string[]>(['police', 'fire', 'ambulance', 'gendarmerie', 'swat', 'helicopter']);
   const [showPurchaseMenu, setShowPurchaseMenu] = useState(false);
@@ -91,6 +91,7 @@ export default function LeftSidebar({ gameState, onPurchase, onRefuelAll, player
               </div>
               {expandedCategories.includes(type) && units.map(unit => {
                 const isIdle = unit.state === 'idle';
+                const isSelected = selectedUnitId === unit.id;
                 const styles = getUnitStyles(unit.type, isIdle);
                 
                 return (
@@ -99,7 +100,8 @@ export default function LeftSidebar({ gameState, onPurchase, onRefuelAll, player
                     key={unit.id} 
                     initial={{ opacity: 0, x: -10 }}
                     animate={{ opacity: 1, x: 0 }}
-                    className={`px-2 py-1.5 ${styles.bg} border ${styles.border} rounded transition-colors flex flex-col`}
+                    onClick={() => onSelectUnit && onSelectUnit(unit.id)}
+                    className={`px-2 py-1.5 ${styles.bg} border ${isSelected ? 'border-sky-400 ring-1 ring-sky-400 bg-sky-950/40' : styles.border} rounded cursor-pointer transition-colors flex flex-col hover:border-slate-500`}
                   >
                     <div className="flex justify-between items-center">
                       <span className={`text-[10px] font-bold uppercase ${styles.title} truncate mr-2`} title={unit.name}>

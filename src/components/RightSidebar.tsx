@@ -81,7 +81,7 @@ export default function RightSidebar({ gameState, selectedIncidentId, onSelectIn
             return (
               <div
                 key={incident.id}
-                onClick={() => onSelectIncident(incident.id === selectedIncidentId ? null : incident.id)}
+                onClick={() => onSelectIncident(incident.id)}
                 className={`p-3 ${theme.bg} border-l-4 ${theme.border} border-y border-r border-y-transparent border-r-transparent rounded-r cursor-pointer flex flex-col gap-1 transition-all ${isSelected ? 'border-y-slate-700 border-r-slate-700 shadow-lg' : 'hover:bg-slate-800'}`}
               >
                 {/* Title row */}
@@ -230,21 +230,30 @@ export default function RightSidebar({ gameState, selectedIncidentId, onSelectIn
                   </div>
                   <div className="flex gap-1 flex-wrap">
                     {incident.requiredUnits.map((req, idx) => {
-                      const assigned = incident.assignedUnits.filter(uid => gameState.units[uid]?.type === req);
-                      const isAssigned = assigned.length > idx;
-                      const reqRole = ROLE_FOR_TYPE[req] as OperatorRole;
-                      const isRelevant = playerRoles.includes(reqRole);
+                      const typeReqIndex = incident.requiredUnits.slice(0, idx).filter(r => r === req).length;
+                      const assignedIdsForType = incident.assignedUnits.filter(uid => gameState.units[uid]?.type === req);
+                      const assignedUnitId = assignedIdsForType[typeReqIndex];
+                      const assignedUnit = assignedUnitId ? gameState.units[assignedUnitId] : null;
+
+                      let badgeStyle = 'bg-slate-900 border-slate-800 text-slate-500 font-semibold'; // Gri (netrimis)
+                      let titleText = `${req.toUpperCase()} - Netrimis`;
+
+                      if (assignedUnit) {
+                        const isOnScene = assignedUnit.state === 'on_scene';
+                        if (isOnScene || incident.resolved) {
+                          badgeStyle = 'bg-emerald-500 border-emerald-300 text-slate-950 font-black shadow-sm shadow-emerald-500/40'; // Culoare aprinsă (la fața locului)
+                          titleText = `${req.toUpperCase()} (${assignedUnit.name}) - La fața locului`;
+                        } else {
+                          badgeStyle = 'bg-sky-900/80 border-sky-400 text-sky-200 font-bold animate-pulse shadow-sm shadow-sky-400/30'; // Pulsat (pe drum)
+                          titleText = `${req.toUpperCase()} (${assignedUnit.name}) - Pe drum`;
+                        }
+                      }
 
                       return (
                         <div
                           key={idx}
-                          className={`text-[9px] px-1.5 py-0.5 rounded border font-bold uppercase transition-colors ${
-                            isAssigned
-                              ? 'bg-emerald-900/40 border-emerald-700 text-emerald-400'
-                              : isRelevant
-                              ? 'bg-sky-900/40 border-sky-600 text-sky-400 animate-pulse'
-                              : 'bg-slate-900 border-slate-700 text-slate-600'
-                          }`}
+                          title={titleText}
+                          className={`text-[9px] px-1.5 py-0.5 rounded border uppercase transition-all ${badgeStyle}`}
                         >
                           {req.slice(0, 3)}
                         </div>

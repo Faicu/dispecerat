@@ -76,9 +76,16 @@ interface MapViewProps {
   playerRoles: import('../types').OperatorRole[];
 }
 
-function MapClickHandler({ onMapClick, addRipple }: { onMapClick: (lat: number, lng: number) => void, addRipple: (lat: number, lng: number) => void }) {
+function MapClickHandler({ onMapClick, addRipple, lastMarkerClickRef }: { onMapClick: (lat: number, lng: number) => void, addRipple: (lat: number, lng: number) => void, lastMarkerClickRef: React.RefObject<number> }) {
   useMapEvents({
     click(e) {
+      if (lastMarkerClickRef.current && Date.now() - lastMarkerClickRef.current < 500) {
+        return;
+      }
+      const target = e.originalEvent?.target as HTMLElement | undefined;
+      if (target && target.closest && target.closest('.leaflet-marker-icon, .custom-icon, .leaflet-interactive, .leaflet-marker-pane, .leaflet-popup, button, a')) {
+        return;
+      }
       onMapClick(e.latlng.lat, e.latlng.lng);
       addRipple(e.latlng.lat, e.latlng.lng);
     }
@@ -89,10 +96,11 @@ function MapClickHandler({ onMapClick, addRipple }: { onMapClick: (lat: number, 
 // Memoized per-marker wrappers so the (relatively expensive) DivIcon HTML
 // strings are only rebuilt when this specific unit/incident actually changes,
 // instead of on every state tick for every marker on the map.
-function IncidentMarker({ incident, isSelected, onSelect }: {
+function IncidentMarker({ incident, isSelected, onSelect, lastMarkerClickRef }: {
   incident: GameState['incidents'][string];
   isSelected: boolean;
   onSelect: (id: string | null) => void;
+  lastMarkerClickRef: React.RefObject<number>;
 }) {
   const icon = useMemo(
     () => getIncidentIcon(incident.type, isSelected, incident.severity, incident.resolved),
@@ -105,19 +113,26 @@ function IncidentMarker({ incident, isSelected, onSelect }: {
       icon={icon}
       eventHandlers={{
         click: (e) => {
-          L.DomEvent.stopPropagation(e.originalEvent);
-          onSelect(isSelected ? null : incident.id);
+          if (e.originalEvent) {
+            L.DomEvent.stopPropagation(e.originalEvent);
+            L.DomEvent.stop(e.originalEvent);
+          }
+          if (lastMarkerClickRef) {
+            lastMarkerClickRef.current = Date.now();
+          }
+          onSelect(incident.id);
         },
       }}
     />
   );
 }
 
-function UnitMarker({ unit, isSelected, onSelect, gameState }: {
+function UnitMarker({ unit, isSelected, onSelect, gameState, lastMarkerClickRef }: {
   unit: GameState['units'][string];
   isSelected: boolean;
   onSelect: (id: string | null) => void;
   gameState: GameState;
+  lastMarkerClickRef: React.RefObject<number>;
 }) {
   const icon = useMemo(
     () => getUnitIcon(unit.type, unit.name.split(' ')[0], unit.state, isSelected),
@@ -131,8 +146,14 @@ function UnitMarker({ unit, isSelected, onSelect, gameState }: {
       icon={icon}
       eventHandlers={{
         click: (e) => {
-          L.DomEvent.stopPropagation(e.originalEvent);
-          onSelect(isSelected ? null : unit.id);
+          if (e.originalEvent) {
+            L.DomEvent.stopPropagation(e.originalEvent);
+            L.DomEvent.stop(e.originalEvent);
+          }
+          if (lastMarkerClickRef) {
+            lastMarkerClickRef.current = Date.now();
+          }
+          onSelect(unit.id);
         },
       }}
     >
@@ -238,6 +259,7 @@ const ROLE_FOR_UNIT: Record<string, string> = {
 export default function MapView({ gameState, selectedIncidentId, onSelectIncident, selectedUnitId, onSelectUnit, onMapClick, playerRoles }: MapViewProps) {
   // Center of Bucharest
   const center = { lat: 44.44, lng: 26.09 };
+  const lastMarkerClickRef = useRef<number>(0);
   const [ripples, setRipples] = useState<{lat: number, lng: number, id: number}[]>([]);
   const [hideOtherIncidents, setHideOtherIncidents] = useState(false);
   const [hideOtherUnits, setHideOtherUnits] = useState(false);
@@ -265,7 +287,7 @@ export default function MapView({ gameState, selectedIncidentId, onSelectInciden
       zoomControl={false}
       attributionControl={false}
     >
-      <MapClickHandler onMapClick={onMapClick} addRipple={addRipple} />
+      <MapClickHandler onMapClick={onMapClick} addRipple={addRipple} lastMarkerClickRef={lastMarkerClickRef} />
       <TileLayer
         url="https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png"
       />
@@ -343,6 +365,7 @@ export default function MapView({ gameState, selectedIncidentId, onSelectInciden
             incident={incident}
             isSelected={selectedIncidentId === incident.id}
             onSelect={onSelectIncident}
+            lastMarkerClickRef={lastMarkerClickRef}
           />
         ))}
 
@@ -355,6 +378,7 @@ export default function MapView({ gameState, selectedIncidentId, onSelectInciden
             isSelected={selectedUnitId === unit.id}
             onSelect={onSelectUnit}
             gameState={gameState}
+            lastMarkerClickRef={lastMarkerClickRef}
           />
         ))}
     </MapContainer>

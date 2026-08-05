@@ -1,8 +1,9 @@
-import { GameState } from '../types';
-import { UNIT_THEME, REFUEL_COST } from '../constants';
+import { GameState, OperatorRole } from '../types';
 import { calculateETA, formatReward } from '../utils';
-import { Command, X } from 'lucide-react';
-import { OperatorRole } from '../types';
+import { Command } from 'lucide-react';
+import UnitDetailsPanel from './UnitDetailsPanel';
+import IncidentDetailsPanel from './IncidentDetailsPanel';
+
 interface BottomConsoleProps {
   playerRoles: OperatorRole[];
   gameState: GameState;
@@ -13,11 +14,26 @@ interface BottomConsoleProps {
   onReturnToBase: (unitId: string) => void;
   onSelectIncident?: (id: string | null) => void;
   onSelectUnit?: (id: string | null) => void;
+  onBackToMap?: () => void;
+  hideInlineClose?: boolean;
 }
 
-export default function BottomConsole({ gameState, selectedIncidentId, selectedUnitId, onDispatch, onRefuel, onReturnToBase, playerRoles, onSelectIncident, onSelectUnit }: BottomConsoleProps) {
+export default function BottomConsole({
+  gameState,
+  selectedIncidentId,
+  selectedUnitId,
+  onDispatch,
+  onRefuel,
+  onReturnToBase,
+  playerRoles,
+  onSelectIncident,
+  onSelectUnit,
+  onBackToMap,
+  hideInlineClose,
+}: BottomConsoleProps) {
   const incident = selectedIncidentId ? gameState.incidents[selectedIncidentId] : null;
   const selectedUnit = selectedUnitId ? gameState.units[selectedUnitId] : null;
+
   const getRoleForUnitType = (type: string) => {
     if (type === 'police' || type === 'swat' || type === 'helicopter') return 'police';
     if (type === 'fire') return 'fire';
@@ -31,218 +47,158 @@ export default function BottomConsole({ gameState, selectedIncidentId, selectedU
     return role ? playerRoles.includes(role as OperatorRole) : false;
   };
 
-  const availableUnits = Object.values(gameState.units).filter(u => 
-    (u.state === 'idle' || 
-    u.state === 'patrolling' || 
-    u.state === 'moving' || 
-    u.state === 'routing' || 
-    u.state === 'transporting') &&
-    hasRoleForUnit(u.type)
-  ).sort((a, b) => {
-    const aAvail = a.state === 'idle' || a.state === 'patrolling' ? 1 : 0;
-    const bAvail = b.state === 'idle' || b.state === 'patrolling' ? 1 : 0;
-    if (aAvail !== bAvail) return bAvail - aAvail;
+  const availableUnits = Object.values(gameState.units)
+    .filter(
+      (u) =>
+        (u.state === 'idle' ||
+          u.state === 'patrolling' ||
+          u.state === 'moving' ||
+          u.state === 'routing' ||
+          u.state === 'transporting') &&
+        hasRoleForUnit(u.type)
+    )
+    .sort((a, b) => {
+      const aAvail = a.state === 'idle' || a.state === 'patrolling' ? 1 : 0;
+      const bAvail = b.state === 'idle' || b.state === 'patrolling' ? 1 : 0;
+      if (aAvail !== bAvail) return bAvail - aAvail;
 
-    if (incident) {
-      const etaA = calculateETA(a, incident.location, gameState);
-      const etaB = calculateETA(b, incident.location, gameState);
-      return etaA - etaB;
-    }
-    return 0;
-  });
+      if (incident) {
+        const etaA = calculateETA(a, incident.location, gameState);
+        const etaB = calculateETA(b, incident.location, gameState);
+        return etaA - etaB;
+      }
+      return 0;
+    });
 
+  // 1. Overview when nothing selected
   if ((!incident || incident.resolved) && !selectedUnit) {
+    const activeIncidents = Object.values(gameState.incidents || {})
+      .filter((i) => !i.resolved && !(i.isPhoneCall && i.callStatus !== 'completed'))
+      .sort((a, b) => b.severity - a.severity);
+
     return (
-      <div className="h-full w-full border-l border-slate-800 bg-slate-900/90 p-6 flex flex-col items-center justify-center text-center z-20 relative">
-        <div className="w-12 h-12 rounded-full bg-slate-800 flex items-center justify-center mb-3 text-slate-500 border border-slate-700">
-          <Command size={24} />
+      <div className="h-full w-full md:border-l border-slate-800 bg-slate-950 p-4 flex flex-col items-center z-20 relative overflow-y-auto pb-16">
+        {onBackToMap && (
+          <button
+            onClick={onBackToMap}
+            className="md:hidden self-start flex items-center gap-1.5 px-3 py-1.5 mb-2 rounded-lg bg-sky-950/80 border border-sky-700/80 text-sky-300 hover:text-white hover:bg-sky-900 transition-colors text-xs font-bold uppercase shadow cursor-pointer"
+          >
+            ← Înapoi la Hartă
+          </button>
+        )}
+        <div className="w-10 h-10 rounded-full bg-slate-800 flex items-center justify-center my-2 text-sky-400 border border-slate-700 shrink-0 shadow">
+          <Command size={20} />
         </div>
-        <h3 className="text-xs font-bold uppercase tracking-wider text-slate-300 mb-1">Consolă Dispecerat</h3>
-        <p className="text-xs text-slate-500 max-w-xs leading-relaxed">
-          Selectează un incident sau o unitate pe hartă ori din listă pentru a-i vedea detaliile și opțiunile de comandă.
+        <h3 className="text-xs font-bold uppercase tracking-wider text-slate-200 mb-1">Consolă Dispecerat</h3>
+        <p className="text-[11px] text-slate-400 max-w-xs text-center leading-relaxed mb-4">
+          Selectează un incident sau o unitate pe hartă ori alege un incident din lista de mai jos:
         </p>
-      </div>
-    );
-  }
 
-  if (selectedUnit && (!incident || incident.resolved)) {
-    return (
-      <div className="h-full border-l border-slate-800 bg-slate-900/90 p-4 flex flex-col gap-4 z-20 relative overflow-y-auto">
-        <div className="w-full flex flex-col gap-2">
-          <div className="flex items-center gap-2 justify-between">
-            <div className="flex items-center gap-2">
-              <span className="w-2 h-2 rounded-full bg-emerald-500"></span>
-              <span className="text-xs font-bold uppercase tracking-widest text-white">Unit {selectedUnit.name}</span>
-            </div>
-            {onSelectUnit && (
-              <button onClick={() => onSelectUnit(null)} className="p-1 rounded text-slate-400 hover:text-white hover:bg-slate-800 transition-colors" title="Închide">
-                <X size={14} />
-              </button>
-            )}
-          </div>
-          <div className="bg-black/40 p-3 rounded border border-slate-800 flex-1 flex flex-col">
-            <div className="flex justify-between items-center mb-2">
-              <div className="text-[11px] text-slate-300 font-mono">
-                Status: <span className="text-emerald-400">{selectedUnit.state.toUpperCase()}</span>
-              </div>
-              <div className="text-[10px] font-mono text-slate-400">
-                COMBUSTIBIL: <span className={selectedUnit.fuel > 50 ? 'text-emerald-400' : selectedUnit.fuel > 20 ? 'text-yellow-400' : 'text-red-400'}>{Math.floor(selectedUnit.fuel)}%</span>
-              </div>
-            </div>
-            {selectedUnit.activity && (
-              <div className="text-[10px] text-sky-400 italic">
-                "{selectedUnit.activity}"
-              </div>
-            )}
-            <div className="mt-auto text-[9px] text-slate-500 uppercase flex justify-between">
-              <span>Type: {selectedUnit.type}</span>
-              <span>ID: {selectedUnit.id}</span>
-            </div>
-          </div>
-        </div>
-        <div className="flex-1 flex flex-col justify-start border-t border-slate-800 pt-4 mt-2 gap-4">
-           <div className="text-slate-400 text-xs font-mono">
-             Pentru a deplasa manual unitatea, dă click pe hartă unde vrei să o trimiți.
-           </div>
-           <div className="flex gap-2">
-             {selectedUnit.fuel < 100 && (
-               <button 
-                 onClick={() => onRefuel(selectedUnit.id)}
-                 className="bg-emerald-900/40 border border-emerald-700/50 hover:bg-emerald-800/60 hover:border-emerald-500 text-emerald-400 text-[10px] uppercase tracking-widest font-bold px-4 py-2 rounded transition-colors"
-               >
-                 Realimentare ({REFUEL_COST} RON)
-               </button>
-             )}
-             <button 
-               onClick={() => onReturnToBase(selectedUnit.id)}
-               className="bg-slate-800 border border-slate-700 hover:bg-slate-700 hover:border-slate-500 text-slate-300 text-[10px] uppercase tracking-widest font-bold px-4 py-2 rounded transition-colors"
-             >
-               Retrage la Bază
-             </button>
-           </div>
-        </div>
-      </div>
-    );
-  }
-
-  // At this point earlier guards have ruled out (!incident || incident.resolved),
-  // but TS can't see that across the two return branches above — narrow explicitly.
-  if (!incident) return null;
-
-  return (
-    <div className="h-full border-l border-slate-800 bg-slate-900/90 p-4 flex flex-col gap-4 z-20 relative overflow-y-auto">
-      <div className="w-full flex flex-col gap-2 shrink-0">
-        <div className="flex items-center gap-2 justify-between">
-          <div className="flex items-center gap-2">
-            <span className={`w-2 h-2 rounded-full ${incident.severity === 5 ? 'bg-purple-500 animate-pulse' : incident.severity === 4 ? 'bg-red-500 animate-pulse' : incident.severity === 3 ? 'bg-orange-500' : incident.severity === 2 ? 'bg-yellow-500' : 'bg-blue-500'}`}></span>
-            <span className="text-xs font-bold uppercase tracking-widest text-white">Incident {incident.id}: {incident.name}</span>
-          </div>
-          <div className="flex items-center gap-2">
-            <div className={`text-[10px] font-bold uppercase px-2 py-0.5 rounded ${incident.severity === 5 ? 'bg-purple-500/20 text-purple-400 border border-purple-500/50' : incident.severity === 4 ? 'bg-red-500/20 text-red-400 border border-red-500/50' : incident.severity === 3 ? 'bg-orange-500/20 text-orange-400 border border-orange-500/50' : incident.severity === 2 ? 'bg-yellow-500/20 text-yellow-400 border border-yellow-500/50' : 'bg-blue-500/20 text-blue-400 border border-blue-500/50'}`}>
-              COD {incident.severity}
-            </div>
-            <div className="text-[10px] text-emerald-400 font-bold uppercase px-2 py-0.5 rounded bg-emerald-900/20 border border-emerald-800/50 flex items-center">
-              +€{formatReward(incident.reward)}
-            </div>
-            {onSelectIncident && (
-              <button onClick={() => onSelectIncident(null)} className="p-1 rounded text-slate-400 hover:text-white hover:bg-slate-800 transition-colors ml-1" title="Deselectează Incident">
-                <X size={14} />
-              </button>
-            )}
-          </div>
-        </div>
-        <div className="bg-black/40 p-3 rounded border border-slate-800 flex-1 overflow-y-auto flex gap-3">
-          {incident.imageUrl && (
-            <img 
-              src={incident.imageUrl} 
-              alt={incident.name} 
-              className="w-24 h-24 object-cover rounded border border-slate-700 shadow-md opacity-80" 
-              onError={(e) => { e.currentTarget.style.display = 'none'; }}
-            />
-          )}
-          <div className="flex-1 flex flex-col">
-            <div className="text-[10px] text-slate-400 font-mono mb-1 flex justify-between">
-              <span><span aria-hidden="true">📍</span> {incident.address || 'Se localizează...'}</span>
-              <span>Req: <span className="text-slate-300">{incident.requiredUnits.join(', ')}</span></span>
-            </div>
-            <p className="text-[11px] text-slate-300 leading-relaxed mb-2">
-              {incident.description}
-            </p>
-            {incident.activities && incident.activities.length > 0 && (
-              <div className="mt-auto mb-2 space-y-1 bg-slate-900/50 p-2 rounded border border-slate-800">
-                <div className="text-[9px] uppercase font-bold text-slate-500 mb-1">Activități la fața locului</div>
-                {incident.activities.map((act, i) => (
-                  <div key={i} className="text-[10px] text-emerald-400 font-mono flex gap-1">
-                    <span className="opacity-50">&gt;</span> {act}
-                  </div>
-                ))}
-              </div>
-            )}
-            
-            <div className="mt-auto pt-2 border-t border-slate-800">
-              <div className="text-[9px] uppercase font-bold text-slate-500 mb-1">Unități Alocate</div>
-              <div className="space-y-1">
-                {incident.assignedUnits.length === 0 && <div className="text-[10px] text-slate-500 italic">Nicio unitate alocată.</div>}
-                {incident.assignedUnits.map(uid => {
-                  const unit = gameState.units[uid];
-                  if (!unit) return null;
-                  const isEnRoute = unit.state === 'moving' || unit.state === 'routing';
-                  const isOnScene = unit.state === 'on_scene';
-                  const eta = isEnRoute ? calculateETA(unit, incident.location, gameState) : 0;
-                  
-                  return (
-                    <div key={uid} className="flex justify-between items-center bg-slate-800/40 p-1 px-2 rounded text-[10px]">
-                      <div className="flex items-center gap-1.5">
-                        <div className={`w-1.5 h-1.5 rounded-full ${UNIT_THEME[unit.type].dot}`}></div>
-                        <span className="font-mono text-slate-200">{unit.name}</span>
+        {activeIncidents.length > 0 ? (
+          <div className="w-full flex-1 flex flex-col gap-2">
+            <span className="text-[10px] uppercase font-bold text-slate-500 tracking-wider">
+              Incidente Active ({activeIncidents.length})
+            </span>
+            <div className="space-y-2">
+              {activeIncidents.map((inc) => (
+                <div
+                  key={inc.id}
+                  onClick={() => onSelectIncident && onSelectIncident(inc.id)}
+                  className="p-3 bg-slate-900 hover:bg-slate-800 border border-slate-800 rounded-lg cursor-pointer flex flex-col gap-2 transition-colors shadow-sm"
+                >
+                  <div className="flex items-center justify-between">
+                    <div className="flex flex-col gap-0.5 min-w-0">
+                      <div className="flex items-center gap-2">
+                        <span
+                          className={`w-2 h-2 rounded-full shrink-0 ${
+                            inc.severity >= 4 ? 'bg-red-500 animate-pulse' : 'bg-yellow-500'
+                          }`}
+                        />
+                        <span className="text-xs font-bold text-white truncate">{inc.name}</span>
                       </div>
-                      <div className="font-mono">
-                        {isOnScene ? (
-                          <span className="text-emerald-400">La fața locului</span>
-                        ) : (
-                          <span className="text-blue-400">ETA: {eta}s</span>
-                        )}
-                      </div>
+                      <span className="text-[10px] text-slate-400 font-mono truncate">📍 {inc.address || 'București'}</span>
                     </div>
-                  );
-                })}
-              </div>
+                    <div className="flex flex-col items-end shrink-0 ml-2">
+                      <span className="text-[9px] font-bold text-red-400 uppercase bg-red-950/60 px-1.5 py-0.5 rounded border border-red-800/50">
+                        COD {inc.severity}
+                      </span>
+                      <span className="text-[10px] text-emerald-400 font-bold mt-1">+€{formatReward(inc.reward)}</span>
+                    </div>
+                  </div>
+
+                  {/* Required units status chips */}
+                  <div className="flex gap-1 flex-wrap pt-1 border-t border-slate-800">
+                    {inc.requiredUnits.map((req, idx) => {
+                      const typeReqIndex = inc.requiredUnits.slice(0, idx).filter(r => r === req).length;
+                      const assignedIdsForType = inc.assignedUnits.filter(uid => gameState.units[uid]?.type === req);
+                      const assignedUnitId = assignedIdsForType[typeReqIndex];
+                      const assignedUnit = assignedUnitId ? gameState.units[assignedUnitId] : null;
+
+                      let badgeStyle = 'bg-slate-950 border-slate-800 text-slate-500 font-semibold'; // Gri (netrimis)
+                      let titleText = `${req.toUpperCase()} - Netrimis`;
+
+                      if (assignedUnit) {
+                        const isOnScene = assignedUnit.state === 'on_scene';
+                        if (isOnScene || inc.resolved) {
+                          badgeStyle = 'bg-emerald-500 border-emerald-300 text-slate-950 font-black shadow-sm shadow-emerald-500/40'; // Culoare aprinsă (la fața locului)
+                          titleText = `${req.toUpperCase()} (${assignedUnit.name}) - La fața locului`;
+                        } else {
+                          badgeStyle = 'bg-sky-900/80 border-sky-400 text-sky-200 font-bold animate-pulse shadow-sm shadow-sky-400/30'; // Pulsat (pe drum)
+                          titleText = `${req.toUpperCase()} (${assignedUnit.name}) - Pe drum`;
+                        }
+                      }
+
+                      return (
+                        <div
+                          key={idx}
+                          title={titleText}
+                          className={`text-[8px] px-1.5 py-0.5 rounded border uppercase transition-all ${badgeStyle}`}
+                        >
+                          {req.slice(0, 3)}
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              ))}
             </div>
           </div>
-        </div>
+        ) : (
+          <div className="text-xs text-slate-500 italic py-6">Niciun incident activ momentan.</div>
+        )}
       </div>
+    );
+  }
 
-      <div className="flex-1 flex flex-col gap-2">
-        <span className="text-[10px] text-slate-500 uppercase font-bold tracking-tighter">Dispatch Console (Available Units)</span>
-        <div className="grid grid-cols-1 xl:grid-cols-2 gap-2 flex-1 overflow-y-auto content-start pr-2">
-          {availableUnits.map(unit => (
-            <button 
-              key={unit.id}
-              onClick={() => onDispatch(unit.id)}
-              className={`flex flex-col justify-start gap-1 ${unit.state === 'idle' ? 'bg-slate-800/80 border-slate-600 hover:bg-slate-700' : 'bg-orange-900/40 border-orange-800/80 hover:bg-orange-800/60'} border-2 rounded text-xs text-white py-2 px-3 transition-colors shadow-sm text-left`}
-              title={unit.name}
-            >
-              <div className="flex justify-between items-center w-full gap-1">
-                <div className="flex items-center gap-1.5 min-w-0">
-                  <div className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${UNIT_THEME[unit.type].dot}`}></div> 
-                  <span className="uppercase font-bold tracking-wide truncate">{unit.name}</span>
-                </div>
-                {incident && (
-                  <span className="text-[9px] text-slate-300 font-mono whitespace-nowrap">
-                    {calculateETA(unit, incident.location, gameState)}s
-                  </span>
-                )}
-              </div>
-              {unit.state !== 'idle' && (
-                <span className="text-[8px] text-orange-400 font-mono uppercase truncate w-full pl-3">- {unit.state}</span>
-              )}
-            </button>
-          ))}
-          {availableUnits.length === 0 && (
-            <div className="col-span-3 text-center text-xs text-slate-500 py-4 font-mono uppercase tracking-widest">No units available</div>
-          )}
-        </div>
-      </div>
-    </div>
-  );
+  // 2. Unit Details Panel file
+  if (selectedUnitId && (!incident || incident.resolved)) {
+    return (
+      <UnitDetailsPanel
+        unitId={selectedUnitId}
+        gameState={gameState}
+        onRefuel={onRefuel}
+        onReturnToBase={onReturnToBase}
+        onSelectUnit={onSelectUnit}
+        onSelectIncident={onSelectIncident}
+        hideInlineClose={hideInlineClose}
+      />
+    );
+  }
+
+  // 3. Incident Details Panel file
+  if (selectedIncidentId) {
+    return (
+      <IncidentDetailsPanel
+        incidentId={selectedIncidentId}
+        gameState={gameState}
+        availableUnits={availableUnits}
+        onDispatch={onDispatch}
+        onSelectIncident={onSelectIncident}
+        onSelectUnit={onSelectUnit}
+        hideInlineClose={hideInlineClose}
+      />
+    );
+  }
+
+  return null;
 }

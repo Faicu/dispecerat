@@ -1,4 +1,5 @@
 import React, { useEffect, useState, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import { io, Socket } from 'socket.io-client';
 import { GameState, UnitType, OperatorRole } from './types';
 import MapView from './components/MapView';
@@ -9,7 +10,7 @@ import BottomConsole from './components/BottomConsole';
 import { PhoneCallModal } from './components/PhoneCallModal';
 import { playClick, playDispatch, playIncident, playIncidentByType, playSuccess, playError, playSiren, speak, playRadioChatter } from './audio';
 import { UNIT_PRICES } from './constants';
-import { Shield, Map as MapIcon, AlertTriangle, Command } from 'lucide-react';
+import { Shield, Map as MapIcon, AlertTriangle, Command, X, Coffee, Play } from 'lucide-react';
 
 const socket: Socket = io();
 
@@ -60,6 +61,7 @@ export default function App() {
   const selectedIncidentIdRef = useRef<string | null>(null);
   const selectedRolesRef = useRef<OperatorRole[]>([]);
   const gameStateRef = useRef<GameState>(EMPTY_GAME_STATE);
+  const lastSelectionTimeRef = useRef<number>(0);
 
   // Keep refs in sync so keyboard handler always has current values
   useEffect(() => { selectedIncidentIdRef.current = selectedIncidentId; }, [selectedIncidentId]);
@@ -180,6 +182,13 @@ export default function App() {
         if (newState.wavePhase === 'calm') addToast('🟢 Perioadă liniștită', 'success');
         prevWaveRef.current = newState.wavePhase ?? '';
       }
+
+      setSelectedIncidentId(prev => {
+        if (prev && (!newState.incidents || !newState.incidents[prev])) {
+          return null;
+        }
+        return prev;
+      });
     });
 
     return () => {
@@ -229,12 +238,12 @@ export default function App() {
   };
 
   const handleMapClick = (lat: number, lng: number) => {
+    if (Date.now() - lastSelectionTimeRef.current < 600) {
+      return;
+    }
     if (selectedUnitId) {
       playRadioChatter();
       socket.emit('manualMoveUnit', { unitId: selectedUnitId, targetLoc: { lat, lng } });
-      setSelectedUnitId(null);
-    } else {
-      setSelectedIncidentId(null);
       setSelectedUnitId(null);
     }
   };
@@ -333,37 +342,23 @@ export default function App() {
   };
 
   const handleSelectUnit = (unitId: string | null) => {
-    if (!unitId) {
-      setSelectedUnitId(null);
-      return;
-    }
-    if (!gameState) return;
-    const unit = gameState.units[unitId];
-    if (unit) {
-      const getRoleForUnitType = (type: string) => {
-        if (type === 'police' || type === 'swat' || type === 'helicopter') return 'police';
-        if (type === 'fire') return 'fire';
-        if (type === 'ambulance') return 'ambulance';
-        if (type === 'gendarmerie') return 'gendarmerie';
-        return null;
-      };
-      const role = getRoleForUnitType(unit.type);
-      if (role && selectedRoles.includes(role as OperatorRole)) {
-        setSelectedUnitId(unitId);
-        if (window.innerWidth < 768) {
-          setMobileView('console');
-        }
-      }
+    lastSelectionTimeRef.current = Date.now();
+    setSelectedUnitId(unitId);
+    if (unitId) {
+      setSelectedIncidentId(null);
+    } else {
+      setMobileView('map');
     }
   };
 
   const handleSelectIncident = (id: string | null) => {
+    lastSelectionTimeRef.current = Date.now();
     setSelectedIncidentId(id);
     if (id) {
+      setSelectedUnitId(null);
       setLeftTab('incidents');
-      if (window.innerWidth < 768) {
-        setMobileView('console');
-      }
+    } else {
+      setMobileView('map');
     }
   };
 
@@ -401,6 +396,8 @@ export default function App() {
         <div className={`absolute inset-0 z-30 md:relative md:w-80 lg:w-[22rem] shrink-0 md:z-0 ${mobileView === 'units' || mobileView === 'incidents' ? 'flex' : 'hidden md:flex'}`}>
           <LeftSidebar
           gameState={gameState}
+          selectedUnitId={selectedUnitId}
+          onSelectUnit={handleSelectUnit}
           onPurchase={handlePurchase}
           onRefuelAll={() => socket.emit('refuelAll')}
           playerRoles={selectedRoles}
@@ -429,6 +426,41 @@ export default function App() {
             playerRoles={selectedRoles}
           />
           {renderMapOverlay()}
+
+          {/* Full-screen Mobile Modal when an incident or unit is selected */}
+          {(Boolean(selectedIncidentId || selectedUnitId)) && (
+            <div className="fixed inset-0 z-[9999] bg-slate-950 flex flex-col overflow-hidden md:hidden animate-in fade-in duration-150">
+              <div className="bg-slate-900 border-b border-slate-800 px-4 py-3 flex items-center justify-between shrink-0 shadow-lg">
+                <span className="text-xs font-bold uppercase tracking-widest text-sky-400 flex items-center gap-2">
+                  <Command size={18} /> Dispecerat Incident / Unitate
+                </span>
+                <button
+                  onClick={() => {
+                    setSelectedIncidentId(null);
+                    setSelectedUnitId(null);
+                    setMobileView('map');
+                  }}
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-red-600 hover:bg-red-500 text-white transition-colors text-xs font-bold uppercase shadow cursor-pointer"
+                >
+                  <X size={16} /> Închide
+                </button>
+              </div>
+              <div className="flex-1 overflow-y-auto bg-slate-950 p-2">
+                <BottomConsole 
+                  gameState={gameState} 
+                  selectedIncidentId={selectedIncidentId}
+                  selectedUnitId={selectedUnitId}
+                  onDispatch={handleDispatch}
+                  onRefuel={handleRefuel}
+                  onReturnToBase={handleReturnToBase}
+                  playerRoles={selectedRoles}
+                  onSelectIncident={handleSelectIncident}
+                  onSelectUnit={handleSelectUnit}
+                  hideInlineClose={true}
+                />
+              </div>
+            </div>
+          )}
    
 
           {isPlayerOnBreak && (
@@ -440,7 +472,8 @@ export default function App() {
           <div className="absolute inset-0 pointer-events-none shadow-[inset_0_0_100px_rgba(15,23,42,0.8)] z-10"></div>
         </div>
         
-        <div className={`absolute inset-0 z-30 md:relative md:w-80 lg:w-96 shrink-0 md:z-0 ${mobileView === 'console' ? 'flex' : 'hidden md:flex'}`}>
+        {/* Console Panel for Desktop or Mobile Console Tab */}
+        <div className={`fixed inset-0 z-[800] bg-slate-950 md:static md:z-0 md:w-80 lg:w-96 shrink-0 ${mobileView === 'console' ? 'flex flex-col' : 'hidden md:flex'}`}>
           <BottomConsole 
             gameState={gameState} 
             selectedIncidentId={selectedIncidentId}
@@ -451,6 +484,7 @@ export default function App() {
             playerRoles={selectedRoles}
             onSelectIncident={handleSelectIncident}
             onSelectUnit={handleSelectUnit}
+            onBackToMap={() => setMobileView('map')}
           />
         </div>
       </div>
@@ -534,6 +568,36 @@ export default function App() {
           </div>
         ))}
       </div>
+
+      {/* Pause Status Overlay */}
+      {isPlayerOnBreak && createPortal(
+        <div className="fixed inset-0 z-[999999] bg-slate-950/85 backdrop-blur-md flex flex-col items-center justify-center p-4 animate-in fade-in duration-200 pointer-events-auto">
+          <div className="bg-slate-900/95 border border-sky-500/50 rounded-2xl p-6 sm:p-8 max-w-md w-full shadow-2xl shadow-sky-950/80 text-center flex flex-col items-center gap-5">
+            <div className="w-16 h-16 rounded-full bg-sky-950 border-2 border-sky-400 flex items-center justify-center text-sky-400 animate-pulse shadow-lg shadow-sky-500/30">
+              <Coffee size={32} />
+            </div>
+            <div>
+              <h2 className="text-xl sm:text-2xl font-black text-white uppercase tracking-wider mb-2">
+                OPERATOR ÎN PAUZĂ
+              </h2>
+              <p className="text-xs sm:text-sm text-slate-300 leading-relaxed font-medium">
+                Sunteți în pauză. Dispeceratul AI preia și gestionează automat toate apelurile și incidentele în locul dumneavoastră.
+              </p>
+            </div>
+            <div className="w-full bg-slate-950/80 rounded-xl p-3 border border-slate-800 text-[11px] text-sky-300 font-mono flex items-center justify-center gap-2">
+              <span className="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-ping" />
+              Sistemul AI este activ &amp; operațional
+            </div>
+            <button
+              onClick={() => socket.emit('toggleBreak')}
+              className="w-full py-3.5 px-6 rounded-xl bg-gradient-to-r from-sky-500 to-blue-600 hover:from-sky-400 hover:to-blue-500 text-white font-bold text-xs sm:text-sm uppercase tracking-widest transition-all shadow-lg shadow-sky-600/40 active:scale-95 cursor-pointer flex items-center justify-center gap-2.5"
+            >
+              <Play size={18} fill="currentColor" /> Reia Tura de Dispecerat
+            </button>
+          </div>
+        </div>,
+        document.body
+      )}
     </div>
   );
 }

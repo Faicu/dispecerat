@@ -50,6 +50,7 @@ export interface Incident {
   description: string;
   imageUrl: string;
   resolved: boolean;
+  resolvedAt?: number;
   isMoving?: boolean;
   movingTarget?: Location | null;
   isResolving?: boolean;

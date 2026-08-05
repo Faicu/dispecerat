@@ -233,8 +233,25 @@ const RADIO_MESSAGES: Record<string, string[]> = {
   helicopter: ['Supraveghere aeriană activă.', 'Confirmăm vizual de la altitudine.', 'Urmărim vehiculul suspect pe direcția nord.'],
 };
 
+const getRandomIncidentTemplate = () => {
+  const weights = incidentTypes.map(t => {
+    if (t.severity >= 5) return 0.25; // Cod 5 - Foarte rar (~2%)
+    if (t.severity === 4) return 1.0;  // Cod 4 - Rar (~8%)
+    if (t.severity === 3) return 3.5;  // Cod 3 - Mediu (~28%)
+    if (t.severity === 2) return 5.0;  // Cod 2 - Frecvent (~35%)
+    return 6.0;                        // Cod 1 - Foarte frecvent (~27%)
+  });
+  const totalWeight = weights.reduce((a, b) => a + b, 0);
+  let rand = Math.random() * totalWeight;
+  for (let i = 0; i < incidentTypes.length; i++) {
+    if (rand < weights[i]) return incidentTypes[i];
+    rand -= weights[i];
+  }
+  return incidentTypes[0];
+};
+
 const spawnIncident = () => {
-  const template = incidentTypes[Math.floor(Math.random() * incidentTypes.length)];
+  const template = getRandomIncidentTemplate();
   const id = `i${incidentIdCounter++}`;
   const location = getRandomLocation();
   
@@ -428,7 +445,7 @@ const tick = (io: Server) => {
     if (gameState.wavePhase === 'calm') addLog('✅ Perioadă liniștită — situație sub control.', 'success');
     stateChanged = true;
   }
-  const WAVE_RATES: Record<string, number> = { calm: 0.003, building: 0.007, wave: 0.018, decay: 0.005 };
+  const WAVE_RATES: Record<string, number> = { calm: 0.0012, building: 0.0035, wave: 0.008, decay: 0.0025 };
   gameState.incidentRate = WAVE_RATES[gameState.wavePhase];
   
 
@@ -600,6 +617,7 @@ const tick = (io: Server) => {
         gameState.reputation = Math.max(0, gameState.reputation - 5);
         incident.activities = ['Incidentul a expirat, apelanții nu au primit ajutor la timp!'];
         incident.resolved = true;
+        incident.resolvedAt = Date.now();
         addLog(`Incident Expirat: ${incident.name} (Reputație -5)`, 'error');
         
         // Release assigned units
@@ -611,9 +629,6 @@ const tick = (io: Server) => {
           }
         });
         
-        setTimeout(() => {
-          delete gameState.incidents[incident.id];
-        }, 5000);
         stateChanged = true;
         return;
       }
@@ -741,79 +756,74 @@ const tick = (io: Server) => {
                  incident.activities!.unshift('Presa solicită declarații...');
                  addLog(`Atenție! Mass-media prezentă la ${incident.name}`, 'warning');
                }
-
             }
 
             if (incident.resolutionProgress! >= 100) {
-            incident.resolved = true;
-            if (incident.complication && !incident.complication.resolved) {
-              gameState.reputation = Math.max(0, gameState.reputation - 5);
-              addLog(`Incidentul ${incident.name} a fost soluționat, dar o decizie tactică a fost ignorată. -5 Reputație`, 'error');
-            } else {
-              gameState.reputation = Math.min(100, gameState.reputation + 2);
-              addLog(`Incident Soluționat: ${incident.name} (+${incident.reward} RON, +2 Reputație)`, 'success');
-              gameState.budget += incident.reward;
-            }
-            incident.activities = ['Incidentul a fost soluționat. Unitățile se retrag.'];
-            gameState.resolvedCountTotal++;
-            if (incident.primaryOperator) {
-              gameState.resolvedCountPerOperator[incident.primaryOperator] = (gameState.resolvedCountPerOperator[incident.primaryOperator] || 0) + 1;
-            }
-            
-            // Transport suspects/patients and return to base
-            incident.assignedUnits.forEach(uid => {
-              const unit = gameState.units[uid];
-              if (unit) {
-                unit.state = 'transporting';
-                unit.targetIncidentId = null;
-
-                let targetBase = { id: '', location: { lat: 0, lng: 0 } };
-                if (unit.type === 'ambulance') {
-                   let nearest = hospitals[0];
-                   let minDist = Infinity;
-                   for (const st of hospitals) {
-                      const d = Math.pow(st.location.lat - unit.location.lat, 2) + Math.pow(st.location.lng - unit.location.lng, 2);
-                      if (d < minDist) { minDist = d; nearest = st; }
-                   }
-                   targetBase = nearest;
-                } else if (unit.type === 'fire') {
-                   let nearest = fireStations[0];
-                   let minDist = Infinity;
-                   for (const st of fireStations) {
-                      const d = Math.pow(st.location.lat - unit.location.lat, 2) + Math.pow(st.location.lng - unit.location.lng, 2);
-                      if (d < minDist) { minDist = d; nearest = st; }
-                   }
-                   targetBase = nearest;
-                } else {
-                   let nearest = policeStations[0];
-                   let minDist = Infinity;
-                   for (const st of policeStations) {
-                      const d = Math.pow(st.location.lat - unit.location.lat, 2) + Math.pow(st.location.lng - unit.location.lng, 2);
-                      if (d < minDist) { minDist = d; nearest = st; }
-                   }
-                   targetBase = nearest;
-                }
-
-                unit.targetStationId = targetBase.id;
-                
-                // Find route to station in background
-                unit.route = [];
-                if (unit.type !== 'helicopter') {
-                   getRoute(unit.location, targetBase.location).then(route => {
-                     if (unit.state === 'transporting' && unit.targetStationId === targetBase.id) {
-                       unit.route = route;
-                     }
-                   });
-                }
+              incident.resolved = true;
+              incident.resolvedAt = Date.now();
+              if (incident.complication && !incident.complication.resolved) {
+                gameState.reputation = Math.max(0, gameState.reputation - 5);
+                addLog(`Incidentul ${incident.name} a fost soluționat, dar o decizie tactică a fost ignorată. -5 Reputație`, 'error');
+              } else {
+                gameState.reputation = Math.min(100, gameState.reputation + 2);
+                addLog(`Incident Soluționat: ${incident.name} (+${incident.reward} RON, +2 Reputație)`, 'success');
+                gameState.budget += incident.reward;
               }
-            });
-            
-            // Remove incident after 3 seconds
-            setTimeout(() => {
-              delete gameState.incidents[incident.id];
-            }, 3000);
+              incident.activities = ['Incidentul a fost soluționat. Unitățile se retrag.'];
+              gameState.resolvedCountTotal++;
+              if (incident.primaryOperator) {
+                gameState.resolvedCountPerOperator[incident.primaryOperator] = (gameState.resolvedCountPerOperator[incident.primaryOperator] || 0) + 1;
+              }
+              
+              // Transport suspects/patients and return to base
+              incident.assignedUnits.forEach(uid => {
+                const unit = gameState.units[uid];
+                if (unit) {
+                  unit.state = 'transporting';
+                  unit.targetIncidentId = null;
+
+                  let targetBase = { id: '', location: { lat: 0, lng: 0 } };
+                  if (unit.type === 'ambulance') {
+                     let nearest = hospitals[0];
+                     let minDist = Infinity;
+                     for (const st of hospitals) {
+                        const d = Math.pow(st.location.lat - unit.location.lat, 2) + Math.pow(st.location.lng - unit.location.lng, 2);
+                        if (d < minDist) { minDist = d; nearest = st; }
+                     }
+                     targetBase = nearest;
+                  } else if (unit.type === 'fire') {
+                     let nearest = fireStations[0];
+                     let minDist = Infinity;
+                     for (const st of fireStations) {
+                        const d = Math.pow(st.location.lat - unit.location.lat, 2) + Math.pow(st.location.lng - unit.location.lng, 2);
+                        if (d < minDist) { minDist = d; nearest = st; }
+                     }
+                     targetBase = nearest;
+                  } else {
+                     let nearest = policeStations[0];
+                     let minDist = Infinity;
+                     for (const st of policeStations) {
+                        const d = Math.pow(st.location.lat - unit.location.lat, 2) + Math.pow(st.location.lng - unit.location.lng, 2);
+                        if (d < minDist) { minDist = d; nearest = st; }
+                     }
+                     targetBase = nearest;
+                  }
+
+                  unit.targetStationId = targetBase.id;
+                  
+                  // Find route to station in background
+                  unit.route = [];
+                  if (unit.type !== 'helicopter') {
+                     getRoute(unit.location, targetBase.location).then(route => {
+                        if (unit.state === 'transporting' && unit.targetStationId === targetBase.id) {
+                          unit.route = route;
+                        }
+                     });
+                  }
+                }
+              });
+            }
           }
-        }
         }
       } else {
         if (incident.isResolving) {
@@ -821,6 +831,19 @@ const tick = (io: Server) => {
           incident.activities = ['Unitățile necesare au părăsit zona, se așteaptă întăriri!'];
           stateChanged = true;
         }
+      }
+    }
+  });
+
+  // Cleanup resolved incidents after 3 seconds (or 5 seconds for expired)
+  Object.values(gameState.incidents).forEach((incident) => {
+    if (incident.resolved) {
+      const resolvedTime = incident.resolvedAt || incident.createdAt;
+      const isExpired = incident.activities && incident.activities[0]?.includes('expirat');
+      const displayDuration = isExpired ? 5000 : 3000;
+      if (Date.now() - resolvedTime >= displayDuration) {
+        delete gameState.incidents[incident.id];
+        stateChanged = true;
       }
     }
   });
@@ -836,21 +859,21 @@ const tick = (io: Server) => {
 
   // Randomly spawn new incidents based on wave rate
   const activeIncidents = Object.values(gameState.incidents).filter(i => !i.resolved).length;
-  // Adaptează rata de incidente în funcție de numărul incidentelor active (mai puține incidente => rată mai mare)
-  let incidentScale = Math.max(0.2, 1.5 - (activeIncidents / 20));
-  if (activeIncidents === 0) incidentScale = 5;
+  // Adaptează rata de incidente în funcție de numărul incidentelor active
+  let incidentScale = Math.max(0.1, 1.2 - (activeIncidents / 8));
+  if (activeIncidents === 0) incidentScale = 2.5;
   const effectiveRate = gameState.incidentRate * (gameState.incidentMultiplier ?? 1) * incidentScale;
-  if (Math.random() < effectiveRate && activeIncidents < 40) {
+  if (Math.random() < effectiveRate && activeIncidents < 15) {
     spawnIncident();
     stateChanged = true;
   }
 
-  // Natural disaster event — rare, spawns 8-12 high-severity incidents at once
+  // Natural disaster event — rare, spawns 3-5 high-severity incidents
   const DISASTER_COOLDOWN = 5 * 60 * 1000;
-  if (Date.now() - lastDisasterTime > DISASTER_COOLDOWN && Math.random() < 0.0003 && activeIncidents < 25) {
+  if (Date.now() - lastDisasterTime > DISASTER_COOLDOWN && Math.random() < 0.0003 && activeIncidents < 10) {
     lastDisasterTime = Date.now();
     const disasterTemplates = incidentTypes.filter(t => ['explosion', 'rescue', 'accident', 'fire'].includes(t.type) && t.severity >= 3);
-    const count = 8 + Math.floor(Math.random() * 5);
+    const count = 3 + Math.floor(Math.random() * 3);
     for (let i = 0; i < count; i++) {
       const template = disasterTemplates[Math.floor(Math.random() * disasterTemplates.length)];
       const id = `i${incidentIdCounter++}`;
