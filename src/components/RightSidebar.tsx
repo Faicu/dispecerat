@@ -27,7 +27,7 @@ export default function RightSidebar({ gameState, selectedIncidentId, onSelectIn
   };
 
   return (
-    <div className="w-72 border-l border-slate-800 bg-slate-900/50 flex flex-col z-10 relative">
+    <div className="w-full md:w-72 border-l border-slate-800 bg-slate-900/50 flex flex-col z-10 relative h-full">
       <div className="flex-1 flex flex-col overflow-hidden">
         <div className="p-3 bg-slate-800/80 text-[10px] font-bold uppercase tracking-widest flex justify-between">
           <span>Active Incidents</span>

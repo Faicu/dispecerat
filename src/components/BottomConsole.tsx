@@ -48,8 +48,8 @@ export default function BottomConsole({ gameState, selectedIncidentId, selectedU
 
   if (selectedUnit && (!incident || incident.resolved)) {
     return (
-      <div className="h-40 border-t border-slate-800 bg-slate-900/90 p-4 flex gap-6 z-20 relative">
-        <div className="w-1/3 flex flex-col gap-2">
+      <div className="h-auto md:h-40 border-t border-slate-800 bg-slate-900/90 p-4 flex flex-col md:flex-row gap-4 md:gap-6 z-20 relative">
+        <div className="w-full md:w-1/3 flex flex-col gap-2">
           <div className="flex items-center gap-2">
             <span className={`w-2 h-2 ${UNIT_THEME[selectedUnit.type].dot}`}></span>
             <span className="text-xs font-bold uppercase tracking-widest text-white">Unit {selectedUnit.name}</span>
@@ -74,7 +74,7 @@ export default function BottomConsole({ gameState, selectedIncidentId, selectedU
             </div>
           </div>
         </div>
-        <div className="flex-1 flex flex-col justify-center border-l border-slate-800 pl-6 gap-4">
+        <div className="flex-1 flex flex-col justify-center md:border-l border-slate-800 md:pl-6 gap-4">
            <div className="text-slate-400 text-xs font-mono">
              Pentru a deplasa manual unitatea, dă click pe hartă unde vrei să o trimiți.
            </div>
@@ -104,8 +104,8 @@ export default function BottomConsole({ gameState, selectedIncidentId, selectedU
   if (!incident) return null;
 
   return (
-    <div className="h-48 border-t border-slate-800 bg-slate-900/90 p-4 flex gap-6 z-20 relative">
-      <div className="w-1/2 flex flex-col gap-2">
+    <div className="h-auto md:h-48 min-h-[16rem] md:min-h-0 border-t border-slate-800 bg-slate-900/90 p-4 flex flex-col md:flex-row gap-4 md:gap-6 z-20 relative overflow-y-auto">
+      <div className="w-full md:w-1/2 flex flex-col gap-2 shrink-0">
         <div className="flex items-center gap-2 justify-between">
           <div className="flex items-center gap-2">
             <span className={`w-2 h-2 ${incident.severity === 3 ? 'bg-red-500 animate-pulse' : incident.severity === 2 ? 'bg-yellow-500' : 'bg-blue-500'}`}></span>

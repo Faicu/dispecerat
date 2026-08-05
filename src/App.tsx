@@ -8,6 +8,7 @@ import RightSidebar from './components/RightSidebar';
 import BottomConsole from './components/BottomConsole';
 import { playClick, playDispatch, playIncident, playSuccess, playError, playSiren, speak, playRadioChatter } from './audio';
 import { UNIT_PRICES } from './constants';
+import { Shield, Map as MapIcon, AlertTriangle, Command } from 'lucide-react';
 
 const socket: Socket = io();
 
@@ -38,6 +39,7 @@ export default function App() {
   const [selectedUnitId, setSelectedUnitId] = useState<string | null>(null);
   const [playerName, setPlayerName] = useState('');
   const [selectedRoles, setSelectedRoles] = useState<OperatorRole[]>([]);
+  const [mobileView, setMobileView] = useState<'map' | 'units' | 'incidents' | 'console'>('map');
   const [isJoined, setIsJoined] = useState(false);
   
   const prevIncidentsRef = useRef<number>(0);
@@ -257,16 +259,18 @@ export default function App() {
       <div aria-hidden="true" className="absolute inset-0 pointer-events-none scanlines z-50 opacity-20 mix-blend-overlay"></div>
       <TopNav playerName={playerName} gameState={gameState} onToggleBreak={() => socket.emit('toggleBreak')} />
       
-      <div className="flex-1 flex overflow-hidden">
-        <LeftSidebar 
+      <div className="flex-1 flex overflow-hidden relative">
+        <div className={`absolute inset-0 z-30 md:relative md:w-64 md:z-0 ${mobileView === 'units' ? 'flex' : 'hidden md:flex'}`}>
+          <LeftSidebar 
           gameState={gameState} 
           onPurchase={handlePurchase} 
           onSetIncidentRate={(rate) => socket.emit('setIncidentRate', { rate })}
           onRefuelAll={() => socket.emit('refuelAll')}
           playerRoles={selectedRoles}
         />
+        </div>
         
-        <div className="flex-1 relative bg-slate-900 overflow-hidden">
+        <div className={`flex-1 relative bg-slate-900 overflow-hidden ${mobileView !== 'map' && mobileView !== 'console' ? 'hidden md:block' : ''}`}>
           <MapView
             gameState={gameState}
             selectedIncidentId={selectedIncidentId}
@@ -314,6 +318,7 @@ export default function App() {
           <div className="absolute inset-0 pointer-events-none shadow-[inset_0_0_100px_rgba(15,23,42,0.8)] z-10"></div>
         </div>
         
+        <div className={`absolute inset-0 z-30 md:relative md:w-72 md:z-0 ${mobileView === 'incidents' ? 'flex' : 'hidden md:flex'}`}>
         <RightSidebar
           gameState={gameState}
           selectedIncidentId={selectedIncidentId}
@@ -321,8 +326,10 @@ export default function App() {
           onResolveComplication={(incidentId, optionId) => socket.emit('resolveComplication', { incidentId, optionId })}
           playerRoles={selectedRoles}
         />
+        </div>
       </div>
       
+      <div className={`${mobileView === 'console' || mobileView === 'map' ? 'block' : 'hidden md:block'}`}>
       <BottomConsole 
         gameState={gameState} 
         selectedIncidentId={selectedIncidentId}
@@ -332,9 +339,32 @@ export default function App() {
         onReturnToBase={handleReturnToBase}
         playerRoles={selectedRoles}
       />
-
+      </div>
       {/* Scanline / Grain Overlay for Game Feel */}
       <div aria-hidden="true" className="fixed inset-0 pointer-events-none bg-[url('https://grainy-gradients.vercel.app/noise.svg')] opacity-[0.03] contrast-150 z-50"></div>
+      
+      <div className="md:hidden flex bg-slate-900 border-t border-slate-800 text-[10px] font-bold uppercase tracking-wider h-16 shrink-0 pb-2 pt-1 z-40 relative">
+        <button onClick={() => setMobileView('units')} className={`flex-1 flex flex-col items-center justify-center transition-colors ${mobileView === 'units' ? 'text-sky-400' : 'text-slate-500 hover:text-slate-400'}`}>
+          <Shield size={20} className="mb-1" />
+          Unități
+        </button>
+        <button onClick={() => setMobileView('map')} className={`flex-1 flex flex-col items-center justify-center transition-colors ${mobileView === 'map' ? 'text-emerald-400' : 'text-slate-500 hover:text-slate-400'}`}>
+          <MapIcon size={20} className="mb-1" />
+          Hartă
+        </button>
+        <button onClick={() => setMobileView('incidents')} className={`flex-1 flex flex-col items-center justify-center relative transition-colors ${mobileView === 'incidents' ? 'text-red-400' : 'text-slate-500 hover:text-slate-400'}`}>
+          <AlertTriangle size={20} className="mb-1" />
+          Incidente
+          {Object.keys(gameState?.incidents || {}).length > 0 && (
+            <span className="absolute top-1 right-[25%] w-2 h-2 bg-red-500 rounded-full animate-pulse" />
+          )}
+        </button>
+        <button onClick={() => setMobileView('console')} className={`flex-1 flex flex-col items-center justify-center transition-colors ${mobileView === 'console' ? 'text-yellow-400' : 'text-slate-500 hover:text-slate-400'}`}>
+          <Command size={20} className="mb-1" />
+          Consolă
+        </button>
+      </div>
     </div>
   );
 }
+

@@ -46,7 +46,7 @@ export default function LeftSidebar({ gameState, onPurchase, onSetIncidentRate, 
   };
 
   return (
-    <div className="w-64 border-r border-slate-800 bg-slate-900/50 flex flex-col z-10 relative h-full">
+    <div className="w-full md:w-64 border-r border-slate-800 bg-slate-900/50 flex flex-col z-10 relative h-full">
       <div className="flex border-b border-slate-800 bg-slate-800/80 text-[10px] font-bold uppercase tracking-widest shrink-0">
         <button 
           onClick={() => setActiveTab('units')}
