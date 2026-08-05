@@ -63,6 +63,18 @@ export default function App() {
   }, []);
 
   useEffect(() => {
+    const onConnect = () => {
+      if (isJoined && playerName.trim() && selectedRoles.length > 0) {
+        socket.emit('join', { name: playerName, roles: selectedRoles });
+      }
+    };
+    socket.on('connect', onConnect);
+    return () => {
+      socket.off('connect', onConnect);
+    };
+  }, [isJoined, playerName, selectedRoles]);
+
+  useEffect(() => {
     socket.on('stateUpdate', (newState: GameState) => {
       setGameState(newState);
       
