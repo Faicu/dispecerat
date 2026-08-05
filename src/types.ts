@@ -105,6 +105,7 @@ export interface GameState {
   resolvedCountPerOperator: Record<string, number>;
   aiStatus?: string;
   incidentRate: number;
+  incidentMultiplier: number;
   wavePhase: 'calm' | 'building' | 'wave' | 'decay';
   waveTimer: number;
   suggestions: string[];

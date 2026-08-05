@@ -16,11 +16,13 @@ export default function TopNav({
   gameState,
   onToggleBreak,
   onReset,
+  onSetMultiplier,
 }: {
   playerName: string;
   gameState: GameState;
   onToggleBreak?: () => void;
   onReset?: () => void;
+  onSetMultiplier?: (v: number) => void;
 }) {
   const [isMuted, setIsMuted] = useState(audioIsMuted);
   const [settingsOpen, setSettingsOpen] = useState(false);
@@ -159,6 +161,34 @@ export default function TopNav({
                 ))}
               </div>
             </div>
+
+            {/* Manual incident multiplier */}
+            {onSetMultiplier && (
+              <div className="px-4 py-3 border-b border-slate-800">
+                <div className="flex items-center gap-2 mb-2">
+                  <Waves size={13} className="text-slate-500" />
+                  <span className="text-[10px] uppercase tracking-widest text-slate-500">Flux Incidente Manual</span>
+                  <span className={`ml-auto text-[10px] font-bold ${(gameState.incidentMultiplier ?? 1) > 1 ? 'text-yellow-400' : 'text-slate-500'}`}>
+                    x{gameState.incidentMultiplier ?? 1}
+                  </span>
+                </div>
+                <div className="flex gap-1">
+                  {[1, 2, 3, 5, 10].map(v => (
+                    <button
+                      key={v}
+                      onClick={() => onSetMultiplier(v)}
+                      className={`flex-1 py-1 rounded border text-[9px] font-bold transition-colors ${
+                        (gameState.incidentMultiplier ?? 1) === v
+                          ? 'bg-yellow-600/30 border-yellow-600 text-yellow-300'
+                          : 'bg-slate-800 border-slate-700 text-slate-400 hover:text-white'
+                      }`}
+                    >
+                      x{v}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
 
             {/* Weather */}
             <div className="px-4 py-3 border-b border-slate-800 flex items-center gap-2 text-sm text-slate-300">

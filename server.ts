@@ -45,6 +45,7 @@ const gameState: GameState = savedGame ? savedGame.state : {
   resolvedCountTotal: 0,
   resolvedCountPerOperator: {},
   incidentRate: 1,
+  incidentMultiplier: 1,
   wavePhase: 'calm',
   waveTimer: Date.now(),
   suggestions: [],
@@ -63,6 +64,7 @@ gameState.operators = [];
 if (gameState.reputation <= 0) gameState.reputation = 100;
 if (!gameState.wavePhase) gameState.wavePhase = 'calm';
 if (!gameState.waveTimer) gameState.waveTimer = Date.now();
+if (!gameState.incidentMultiplier) gameState.incidentMultiplier = 1;
 
 let incidentIdCounter = savedGame ? savedGame.incidentIdCounter : 1;
 let unitIdCounter = savedGame ? savedGame.unitIdCounter : 1;
@@ -730,7 +732,8 @@ const tick = (io: Server) => {
   });
 
   // Randomly spawn new incidents based on wave rate
-  if (Math.random() < gameState.incidentRate && Object.keys(gameState.incidents).length < 40) {
+  const effectiveRate = gameState.incidentRate * (gameState.incidentMultiplier ?? 1);
+  if (Math.random() < effectiveRate && Object.keys(gameState.incidents).length < 40) {
     spawnIncident();
     stateChanged = true;
   }
@@ -827,7 +830,8 @@ async function startServer() {
       gameState.resolvedCountTotal = 0;
       gameState.resolvedCountPerOperator = {};
       gameState.incidents = {};
-      gameState.incidentRate = 0.0005;
+      gameState.incidentRate = 0.003;
+      gameState.incidentMultiplier = 1;
       gameState.wavePhase = 'calm';
       gameState.waveTimer = Date.now();
       
@@ -1019,6 +1023,11 @@ async function startServer() {
 
     socket.on("setIncidentRate", ({ rate }) => {
       gameState.incidentRate = rate;
+      io.emit("stateUpdate", gameState);
+    });
+
+    socket.on("setIncidentMultiplier", ({ multiplier }) => {
+      gameState.incidentMultiplier = multiplier;
       io.emit("stateUpdate", gameState);
     });
 

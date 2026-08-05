@@ -270,7 +270,7 @@ export default function App() {
   return (
     <div className="w-screen h-screen bg-slate-950 text-slate-300 font-sans flex flex-col overflow-hidden select-none relative">
       <div aria-hidden="true" className="absolute inset-0 pointer-events-none scanlines z-50 opacity-20 mix-blend-overlay"></div>
-      <TopNav playerName={playerName} gameState={gameState} onToggleBreak={() => socket.emit('toggleBreak')} onReset={() => socket.emit('restartGame')} />
+      <TopNav playerName={playerName} gameState={gameState} onToggleBreak={() => socket.emit('toggleBreak')} onReset={() => socket.emit('restartGame')} onSetMultiplier={v => socket.emit('setIncidentMultiplier', { multiplier: v })} />
       
       <div className="flex-1 flex overflow-hidden relative">
         <div className={`absolute inset-0 z-30 md:relative md:w-64 md:z-0 ${mobileView === 'units' ? 'flex' : 'hidden md:flex'}`}>
