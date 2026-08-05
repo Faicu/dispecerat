@@ -290,6 +290,7 @@ export default function App() {
             selectedUnitId={selectedUnitId}
             onSelectUnit={handleSelectUnit}
             onMapClick={handleMapClick}
+            playerRoles={selectedRoles}
           />
           {renderMapOverlay()}
    

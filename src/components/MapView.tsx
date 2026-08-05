@@ -73,6 +73,7 @@ interface MapViewProps {
   selectedUnitId: string | null;
   onSelectUnit: (id: string | null) => void;
   onMapClick: (lat: number, lng: number) => void;
+  playerRoles: import('../types').OperatorRole[];
 }
 
 function MapClickHandler({ onMapClick, addRipple }: { onMapClick: (lat: number, lng: number) => void, addRipple: (lat: number, lng: number) => void }) {
@@ -217,10 +218,23 @@ function MiniMap({ gameState }: { gameState: GameState }) {
   );
 }
 
-export default function MapView({ gameState, selectedIncidentId, onSelectIncident, selectedUnitId, onSelectUnit, onMapClick }: MapViewProps) {
+const ROLE_FOR_UNIT: Record<string, string> = {
+  police: 'police', swat: 'police', helicopter: 'police',
+  fire: 'fire', ambulance: 'ambulance', gendarmerie: 'gendarmerie',
+};
+
+export default function MapView({ gameState, selectedIncidentId, onSelectIncident, selectedUnitId, onSelectUnit, onMapClick, playerRoles }: MapViewProps) {
   // Center of Bucharest
   const center = { lat: 44.44, lng: 26.09 };
   const [ripples, setRipples] = useState<{lat: number, lng: number, id: number}[]>([]);
+  const [hideOtherIncidents, setHideOtherIncidents] = useState(false);
+  const [hideOtherUnits, setHideOtherUnits] = useState(false);
+
+  const isMyIncident = (incident: GameState['incidents'][string]) =>
+    incident.requiredUnits.some(u => playerRoles.includes(ROLE_FOR_UNIT[u] as any));
+
+  const isMyUnit = (unit: GameState['units'][string]) =>
+    playerRoles.includes(ROLE_FOR_UNIT[unit.type] as any);
 
   const addRipple = (lat: number, lng: number) => {
     const id = Date.now() + Math.random();
@@ -309,25 +323,50 @@ export default function MapView({ gameState, selectedIncidentId, onSelectInciden
         />
       ))}
 
-      {Object.values(gameState.incidents).map((incident) => (
-        <IncidentMarker
-          key={incident.id}
-          incident={incident}
-          isSelected={selectedIncidentId === incident.id}
-          onSelect={onSelectIncident}
-        />
-      ))}
+      {Object.values(gameState.incidents)
+        .filter(i => hideOtherIncidents ? isMyIncident(i) : true)
+        .map((incident) => (
+          <IncidentMarker
+            key={incident.id}
+            incident={incident}
+            isSelected={selectedIncidentId === incident.id}
+            onSelect={onSelectIncident}
+          />
+        ))}
 
-      {Object.values(gameState.units).map((unit) => (
-        <UnitMarker
-          key={unit.id}
-          unit={unit}
-          isSelected={selectedUnitId === unit.id}
-          onSelect={onSelectUnit}
-          gameState={gameState}
-        />
-      ))}
+      {Object.values(gameState.units)
+        .filter(u => hideOtherUnits ? isMyUnit(u) : true)
+        .map((unit) => (
+          <UnitMarker
+            key={unit.id}
+            unit={unit}
+            isSelected={selectedUnitId === unit.id}
+            onSelect={onSelectUnit}
+            gameState={gameState}
+          />
+        ))}
     </MapContainer>
+
+    {/* Map filter controls */}
+    <div className="absolute top-3 right-3 z-20 flex flex-col gap-1.5">
+      <button
+        onClick={() => setHideOtherIncidents(v => !v)}
+        title={hideOtherIncidents ? 'Arată toate incidentele' : 'Ascunde incidentele care nu mă privesc'}
+        className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded border text-[10px] font-bold uppercase tracking-wider shadow-lg backdrop-blur-sm transition-colors ${hideOtherIncidents ? 'bg-sky-900/80 border-sky-600 text-sky-300' : 'bg-slate-900/80 border-slate-700 text-slate-400 hover:text-white'}`}
+      >
+        <span className="w-2.5 h-2.5 inline-block border border-current" style={{ transform: 'rotate(45deg)' }} />
+        {hideOtherIncidents ? 'Inc. mele' : 'Toate inc.'}
+      </button>
+      <button
+        onClick={() => setHideOtherUnits(v => !v)}
+        title={hideOtherUnits ? 'Arată toate unitățile' : 'Ascunde unitățile pe care nu le operez'}
+        className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded border text-[10px] font-bold uppercase tracking-wider shadow-lg backdrop-blur-sm transition-colors ${hideOtherUnits ? 'bg-sky-900/80 border-sky-600 text-sky-300' : 'bg-slate-900/80 border-slate-700 text-slate-400 hover:text-white'}`}
+      >
+        <span className="w-2.5 h-2.5 inline-block rounded-full border border-current" />
+        {hideOtherUnits ? 'Unit. mele' : 'Toate unit.'}
+      </button>
+    </div>
+
     <MiniMap gameState={gameState} />
     </>
   );
