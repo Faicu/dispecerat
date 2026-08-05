@@ -68,7 +68,7 @@ export default function LeftSidebar({ gameState, onPurchase, onRefuelAll, player
         </button>
       </div>
 
-      <div className="flex-1 p-2 space-y-4 overflow-y-auto">
+      <div className={`flex-1 ${activeTab === 'incidents' ? 'flex flex-col overflow-hidden min-h-0' : 'p-2 space-y-4 overflow-y-auto'}`}>
         {gameState.suggestions && gameState.suggestions.length > 0 && (
           <div className="space-y-1 mb-2">
             {gameState.suggestions.map((s, i) => (

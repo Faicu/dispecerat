@@ -281,6 +281,9 @@ export default function App() {
       const role = getRoleForUnitType(unit.type);
       if (role && selectedRoles.includes(role as OperatorRole)) {
         setSelectedUnitId(unitId);
+        if (window.innerWidth < 768) {
+          setMobileView('console');
+        }
       }
     }
   };
@@ -289,6 +292,9 @@ export default function App() {
     setSelectedIncidentId(id);
     if (id) {
       setLeftTab('incidents');
+      if (window.innerWidth < 768) {
+        setMobileView('console');
+      }
     }
   };
 
@@ -353,6 +359,8 @@ export default function App() {
             onRefuel={handleRefuel}
             onReturnToBase={handleReturnToBase}
             playerRoles={selectedRoles}
+            onSelectIncident={handleSelectIncident}
+            onSelectUnit={handleSelectUnit}
           />
         </div>
       </div>

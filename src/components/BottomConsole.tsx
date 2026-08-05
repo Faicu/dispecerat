@@ -1,7 +1,7 @@
 import { GameState } from '../types';
 import { UNIT_THEME, REFUEL_COST } from '../constants';
 import { calculateETA, formatReward } from '../utils';
-import { Command } from 'lucide-react';
+import { Command, X } from 'lucide-react';
 import { OperatorRole } from '../types';
 interface BottomConsoleProps {
   playerRoles: OperatorRole[];
@@ -11,9 +11,11 @@ interface BottomConsoleProps {
   onDispatch: (unitId: string) => void;
   onRefuel: (unitId: string) => void;
   onReturnToBase: (unitId: string) => void;
+  onSelectIncident?: (id: string | null) => void;
+  onSelectUnit?: (id: string | null) => void;
 }
 
-export default function BottomConsole({ gameState, selectedIncidentId, selectedUnitId, onDispatch, onRefuel, onReturnToBase, playerRoles }: BottomConsoleProps) {
+export default function BottomConsole({ gameState, selectedIncidentId, selectedUnitId, onDispatch, onRefuel, onReturnToBase, playerRoles, onSelectIncident, onSelectUnit }: BottomConsoleProps) {
   const incident = selectedIncidentId ? gameState.incidents[selectedIncidentId] : null;
   const selectedUnit = selectedUnitId ? gameState.units[selectedUnitId] : null;
   const getRoleForUnitType = (type: string) => {
@@ -67,9 +69,16 @@ export default function BottomConsole({ gameState, selectedIncidentId, selectedU
     return (
       <div className="h-full border-l border-slate-800 bg-slate-900/90 p-4 flex flex-col gap-4 z-20 relative overflow-y-auto">
         <div className="w-full flex flex-col gap-2">
-          <div className="flex items-center gap-2">
-            <span className="w-2 h-2 rounded-full bg-emerald-500"></span>
-            <span className="text-xs font-bold uppercase tracking-widest text-white">Unit {selectedUnit.name}</span>
+          <div className="flex items-center gap-2 justify-between">
+            <div className="flex items-center gap-2">
+              <span className="w-2 h-2 rounded-full bg-emerald-500"></span>
+              <span className="text-xs font-bold uppercase tracking-widest text-white">Unit {selectedUnit.name}</span>
+            </div>
+            {onSelectUnit && (
+              <button onClick={() => onSelectUnit(null)} className="p-1 rounded text-slate-400 hover:text-white hover:bg-slate-800 transition-colors" title="Închide">
+                <X size={14} />
+              </button>
+            )}
           </div>
           <div className="bg-black/40 p-3 rounded border border-slate-800 flex-1 flex flex-col">
             <div className="flex justify-between items-center mb-2">
@@ -128,13 +137,18 @@ export default function BottomConsole({ gameState, selectedIncidentId, selectedU
             <span className={`w-2 h-2 rounded-full ${incident.severity === 5 ? 'bg-purple-500 animate-pulse' : incident.severity === 4 ? 'bg-red-500 animate-pulse' : incident.severity === 3 ? 'bg-orange-500' : incident.severity === 2 ? 'bg-yellow-500' : 'bg-blue-500'}`}></span>
             <span className="text-xs font-bold uppercase tracking-widest text-white">Incident {incident.id}: {incident.name}</span>
           </div>
-          <div className="flex gap-2">
+          <div className="flex items-center gap-2">
             <div className={`text-[10px] font-bold uppercase px-2 py-0.5 rounded ${incident.severity === 5 ? 'bg-purple-500/20 text-purple-400 border border-purple-500/50' : incident.severity === 4 ? 'bg-red-500/20 text-red-400 border border-red-500/50' : incident.severity === 3 ? 'bg-orange-500/20 text-orange-400 border border-orange-500/50' : incident.severity === 2 ? 'bg-yellow-500/20 text-yellow-400 border border-yellow-500/50' : 'bg-blue-500/20 text-blue-400 border border-blue-500/50'}`}>
-              Prioritate: COD {incident.severity}
+              COD {incident.severity}
             </div>
             <div className="text-[10px] text-emerald-400 font-bold uppercase px-2 py-0.5 rounded bg-emerald-900/20 border border-emerald-800/50 flex items-center">
-              Recompensă: +€{formatReward(incident.reward)}
+              +€{formatReward(incident.reward)}
             </div>
+            {onSelectIncident && (
+              <button onClick={() => onSelectIncident(null)} className="p-1 rounded text-slate-400 hover:text-white hover:bg-slate-800 transition-colors ml-1" title="Deselectează Incident">
+                <X size={14} />
+              </button>
+            )}
           </div>
         </div>
         <div className="bg-black/40 p-3 rounded border border-slate-800 flex-1 overflow-y-auto flex gap-3">
