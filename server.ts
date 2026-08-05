@@ -333,7 +333,7 @@ const tick = (io: Server) => {
   
   // Wave-based incident rate
   const elapsed = Date.now() - gameState.waveTimer;
-  const WAVE_DURATIONS: Record<string, number> = { calm: 90000, building: 40000, wave: 50000, decay: 30000 };
+  const WAVE_DURATIONS: Record<string, number> = { calm: 60000, building: 30000, wave: 60000, decay: 20000 };
   if (elapsed > WAVE_DURATIONS[gameState.wavePhase]) {
     const transitions: Record<string, GameState['wavePhase']> = { calm: 'building', building: 'wave', wave: 'decay', decay: 'calm' };
     gameState.wavePhase = transitions[gameState.wavePhase];
@@ -342,7 +342,7 @@ const tick = (io: Server) => {
     if (gameState.wavePhase === 'calm') addLog('✅ Perioadă liniștită — situație sub control.', 'success');
     stateChanged = true;
   }
-  const WAVE_RATES: Record<string, number> = { calm: 0.0008, building: 0.002, wave: 0.006, decay: 0.0015 };
+  const WAVE_RATES: Record<string, number> = { calm: 0.003, building: 0.007, wave: 0.018, decay: 0.005 };
   gameState.incidentRate = WAVE_RATES[gameState.wavePhase];
   
 
@@ -730,7 +730,7 @@ const tick = (io: Server) => {
   });
 
   // Randomly spawn new incidents based on wave rate
-  if (Math.random() < gameState.incidentRate && Object.keys(gameState.incidents).length < 25) {
+  if (Math.random() < gameState.incidentRate && Object.keys(gameState.incidents).length < 40) {
     spawnIncident();
     stateChanged = true;
   }
