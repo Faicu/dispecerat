@@ -347,8 +347,8 @@ export default function MapView({ gameState, selectedIncidentId, onSelectInciden
         ))}
     </MapContainer>
 
-    {/* Map filter controls */}
-    <div className="absolute top-3 right-3 z-20 flex flex-col gap-1.5">
+    {/* Map filter controls — z-[1000] to sit above Leaflet's internal panes (max ~700) */}
+    <div className="absolute top-3 right-3 z-[1000] flex flex-col gap-1.5">
       <button
         onClick={() => setHideOtherIncidents(v => !v)}
         title={hideOtherIncidents ? 'Arată toate incidentele' : 'Ascunde incidentele care nu mă privesc'}
