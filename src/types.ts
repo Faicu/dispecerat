@@ -76,7 +76,17 @@ export interface GameLog {
   type: 'info' | 'warning' | 'error' | 'success';
 }
 
+export type OperatorRole = 'police' | 'fire' | 'ambulance' | 'gendarmerie';
+
+export interface Operator {
+  isOnBreak?: boolean;
+  name: string;
+  roles: OperatorRole[];
+}
+
 export interface GameState {
+  isGameOver?: boolean;
+  gameOverReason?: string;
   units: Record<string, Unit>;
   incidents: Record<string, Incident>;
   budget: number;
@@ -84,7 +94,8 @@ export interface GameState {
   gameTime: number; // Unix timestamp for in-game time
   weather: WeatherType;
   logs: GameLog[];
-  operators: string[];
+  operators: Operator[];
+  lastAiTime?: number;
   rentedOperators: { id: string, expiresAt: number, lastActionTime?: number, lastChargeTime?: number }[];
   stations: PoliceStation[];
   hospitals: Hospital[];

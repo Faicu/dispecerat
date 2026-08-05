@@ -4,7 +4,7 @@ import https from "https";
 import path from "path";
 import { Server } from "socket.io";
 import { createServer as createViteServer } from "vite";
-import { GameState, Incident, Unit, Location, UnitType, IncidentType } from "./src/types";
+import { GameState, Incident, Unit, Location, UnitType, IncidentType, OperatorRole, Operator, WeatherType } from "./src/types";
 import { loadGame, saveGame } from "./db";
 import { policeStations, hospitals, fireStations, incidentTypes } from "./server/data";
 
@@ -306,7 +306,29 @@ const updateWeather = () => {
 };
 
 const tick = (io: Server) => {
+  const occupiedRoles = new Set(gameState.operators.filter(o => !o.isOnBreak).flatMap(o => o.roles));
+  const getRoleForUnit = (type: string) => {
+    if (type === 'police' || type === 'swat' || type === 'helicopter') return 'police';
+    if (type === 'fire') return 'fire';
+    if (type === 'ambulance') return 'ambulance';
+    if (type === 'gendarmerie') return 'gendarmerie';
+    return null;
+  };
+
   let stateChanged = false;
+
+  if (gameState.isGameOver) return; // Stop processing if game is over
+
+  if (gameState.reputation <= 0) {
+    gameState.isGameOver = true;
+    gameState.gameOverReason = "Reputația a ajuns la 0%. Cetățenii și autoritățile și-au pierdut încrederea în capacitatea ta de a gestiona dispeceratul.";
+    io.emit("stateUpdate", gameState);
+    return;
+  }
+  
+  // Dynamic difficulty scaling based on resolved count
+  gameState.incidentRate = 1.0 + (gameState.resolvedCountTotal * 0.05);
+  
 
   // Time progresses: 1 tick = 6000ms in-game = 6 seconds in-game per tick (1 minute every 1 real second)
   gameState.gameTime = Date.now();
@@ -512,18 +534,56 @@ const tick = (io: Server) => {
           
           incident.activities = newActivities;
           stateChanged = true;
+        
         } else {
           if (incident.complication && !incident.complication.resolved) {
-            // Blocked by complication
+            // Check if any human operator is responsible for this incident
+            const involvedRoles = new Set(incident.assignedUnits.map(uid => getRoleForUnit(gameState.units[uid]?.type)));
+            let hasHumanOperator = false;
+            for (const role of involvedRoles) {
+              if (role && occupiedRoles.has(role)) {
+                hasHumanOperator = true;
+                break;
+              }
+            }
+
+            if (!hasHumanOperator) {
+              if (incident.complication.options) {
+                const affordableOptions = incident.complication.options.filter(o => gameState.budget >= o.cost).sort((a, b) => (b.repImpact || 0) - (a.repImpact || 0));
+                if (affordableOptions.length > 0) {
+                  const opt = affordableOptions[0];
+                  gameState.budget -= opt.cost;
+                  incident.complication.resolved = true;
+                  incident.activities!.unshift(opt.resultMsg);
+                  if (opt.repImpact) gameState.reputation = Math.max(0, Math.min(100, gameState.reputation + opt.repImpact));
+                  if (opt.id === 'opt2') gameState.budget += 2000;
+                  addLog(`AI-ul a decis: ${opt.label} (${incident.name})`, 'info');
+                }
+              } else {
+                 if (gameState.budget >= 2500) {
+                    gameState.budget -= 2500;
+                    incident.complication.resolved = true;
+                    incident.activities!.unshift('AI-ul a aprobat procedura. Situația este sub control.');
+                    addLog(`AI-ul a aprobat procedura pentru ${incident.name}.`, 'info');
+                 }
+              }
+            }
+            
+            if (!incident.complication.resolved) {
+              incident.resolutionProgress! += 0.25;
+              stateChanged = true;
+            }
           } else {
             incident.resolutionProgress! += 2; // +2% per tick (10 ticks/sec => 5 seconds to resolve)
             stateChanged = true;
+
             
             // Random chance for complication
             if (incident.resolutionProgress! > 40 && incident.resolutionProgress! < 60 && !incident.escalated && Math.random() < 0.6) {
                incident.escalated = true;
+               
                const randChoice = Math.random();
-               if (randChoice < 0.33) {
+               if (randChoice < 0.25) {
                  const possibleBackup: UnitType[] = ['police', 'ambulance', 'fire'];
                  const extraType = possibleBackup[Math.floor(Math.random() * possibleBackup.length)];
                  incident.requiredUnits.push(extraType);
@@ -535,36 +595,52 @@ const tick = (io: Server) => {
                  incident.isResolving = false;
                  incident.activities!.unshift(`Situația a escaladat! Mai e nevoie de 1 x ${extraType.toUpperCase()}.`);
                  addLog(`Escaladare la ${incident.name}: E nevoie de 1x ${extraType.toUpperCase()}`, 'warning');
-               } else if (randChoice < 0.66) {
+               } else if (randChoice < 0.5) {
                  incident.complication = {
-                   message: 'Este necesară autorizarea dispeceratului pentru proceduri speciale.',
-                   actionLabel: 'Aprobă Procedura (€1000)',
+                   message: 'Este necesară autorizarea dispeceratului pentru proceduri speciale (negociatori/echipamente speciale).',
+                   actionLabel: 'Aprobă Procedura (€2500)',
                    resolved: false
                  };
                  incident.activities!.unshift('Se așteaptă decizia dispeceratului...');
                  addLog(`Atenție! Este necesară decizia ta la ${incident.name}`, 'warning');
-               } else {
+               } else if (randChoice < 0.75) {
                  incident.complication = {
-                   message: 'Decizie tactică necesară de la dispecerat. Ce ordin dăm unităților?',
+                   message: 'Decizie tactică: Suspecții încearcă să fugă. Solicităm ordin.',
                    resolved: false,
                    options: [
-                     { id: 'opt1', label: 'Abordare Precaută (-€500)', cost: 500, resultMsg: 'S-a adoptat o poziție defensivă. Victimele sunt în siguranță.', repImpact: 1 },
-                     { id: 'opt2', label: 'Asalt în Forță (+€2000, Risc)', cost: 0, resultMsg: 'Intervenție brutală. Am recuperat bunuri, dar opinia publică e critică.', repImpact: -3 }
+                     { id: 'opt1', label: 'Urmărire cu orice preț (-€1500 Daune)', cost: 1500, resultMsg: 'Suspecți prinși. Daune colaterale minore.', repImpact: 3 },
+                     { id: 'opt2', label: 'Securizare perimetru (Siguranță)', cost: 0, resultMsg: 'Un suspect a scăpat, dar nu sunt răniți.', repImpact: -2 }
                    ]
                  };
                  incident.activities!.unshift('Așteptăm ordin tactic...');
                  addLog(`Atenție! Decizie tactică necesară la ${incident.name}`, 'warning');
+               } else {
+                 incident.complication = {
+                   message: 'Mass-media a ajuns la fața locului. Cum gestionăm situația?',
+                   resolved: false,
+                   options: [
+                     { id: 'opt1', label: 'Desemnează un purtător de cuvânt (-€500)', cost: 500, resultMsg: 'Comunicare oficială reușită. Imagine publică îmbunătățită.', repImpact: 5 },
+                     { id: 'opt2', label: 'Blochează accesul presei (Risc)', cost: 0, resultMsg: 'Jurnaliștii au speculat negativ situația.', repImpact: -5 }
+                   ]
+                 };
+                 incident.activities!.unshift('Presa solicită declarații...');
+                 addLog(`Atenție! Mass-media prezentă la ${incident.name}`, 'warning');
                }
+
             }
 
             if (incident.resolutionProgress! >= 100) {
             incident.resolved = true;
+            if (incident.complication && !incident.complication.resolved) {
+              gameState.reputation = Math.max(0, gameState.reputation - 5);
+              addLog(`Incidentul ${incident.name} a fost soluționat, dar o decizie tactică a fost ignorată. -5 Reputație`, 'error');
+            } else {
+              gameState.reputation = Math.min(100, gameState.reputation + 2);
+              addLog(`Incident Soluționat: ${incident.name} (+${incident.reward} RON, +2 Reputație)`, 'success');
+              gameState.budget += incident.reward;
+            }
             incident.activities = ['Incidentul a fost soluționat. Unitățile se retrag.'];
-            
             gameState.resolvedCountTotal++;
-            gameState.budget += incident.reward;
-            gameState.reputation = Math.min(100, gameState.reputation + 2); // gain 2 rep
-            addLog(`Incident Soluționat: ${incident.name} (+${incident.reward} RON, +2 Reputație)`, 'success');
             if (incident.primaryOperator) {
               gameState.resolvedCountPerOperator[incident.primaryOperator] = (gameState.resolvedCountPerOperator[incident.primaryOperator] || 0) + 1;
             }
@@ -645,44 +721,32 @@ const tick = (io: Server) => {
 
   // Handle rented operators expiration and AI dispatch
   const now = gameState.gameTime;
-  if (gameState.rentedOperators.length > 0) {
-    const aiOp = gameState.rentedOperators[0];
-    const timeSinceLastCharge = Date.now() - (aiOp.lastChargeTime || 0);
-    if (timeSinceLastCharge >= 60000) {
-        if (gameState.budget >= 3000) {
-            gameState.budget -= 3000;
-            aiOp.lastChargeTime = Date.now();
-            stateChanged = true;
-        } else {
-            gameState.rentedOperators = [];
-            addLog('Operatorul AI a fost dezactivat (fonduri insuficiente).', 'warning');
-            stateChanged = true;
+  // AI Dispatching logic for unassigned roles
+  
+  
+  if (!gameState.lastAiTime) gameState.lastAiTime = Date.now();
+  if (Date.now() - gameState.lastAiTime > 3000) {
+    let dispatchedThisTick = false;
+    for (const incident of Object.values(gameState.incidents)) {
+      if (dispatchedThisTick) break;
+      if (incident.resolved || incident.isResolving) continue;
+      
+      const neededUnits = [...incident.requiredUnits];
+      incident.assignedUnits.forEach(uid => {
+        const u = gameState.units[uid];
+        if (u) {
+          const idx = neededUnits.indexOf(u.type);
+          if (idx !== -1) neededUnits.splice(idx, 1);
         }
-    }
-    const timeSinceLastAction = Date.now() - (aiOp.lastActionTime || 0);
-
-    if (timeSinceLastAction > 3000) {
-      // AI Dispatching logic
-      let dispatchedThisTick = false;
-      for (const incident of Object.values(gameState.incidents)) {
-        if (dispatchedThisTick) break;
-        if (incident.resolved || incident.isResolving) continue;
-        
-        const neededUnits = [...incident.requiredUnits];
-        incident.assignedUnits.forEach(uid => {
-          const u = gameState.units[uid];
-          if (u) {
-            const idx = neededUnits.indexOf(u.type);
-            if (idx !== -1) neededUnits.splice(idx, 1);
-          }
-        });
-        
-        if (neededUnits.length > 0) {
-          // Try to find the closest available unit
-          for (const unitType of neededUnits) {
+      });
+      
+      if (neededUnits.length > 0) {
+        for (const unitType of neededUnits) {
+          const role = getRoleForUnit(unitType);
+          if (role && !occupiedRoles.has(role)) {
+            // AI handles this unit type
             const idleUnits = Object.values(gameState.units).filter(u => u.type === unitType && (u.state === 'idle' || u.state === 'patrolling') && u.fuel > 20);
             if (idleUnits.length > 0) {
-              // Sort by distance to incident
               idleUnits.sort((a, b) => {
                 const distA = Math.pow(a.location.lng - incident.location.lng, 2) + Math.pow(a.location.lat - incident.location.lat, 2);
                 const distB = Math.pow(b.location.lng - incident.location.lng, 2) + Math.pow(b.location.lat - incident.location.lat, 2);
@@ -705,14 +769,13 @@ const tick = (io: Server) => {
                      idleUnit.route = route;
                      idleUnit.state = 'moving';
                    }
-                });
+                }).catch(err => console.error("Route error:", err));
               }
-              addLog(`Operatorul AI a alocat ${idleUnit.name} la incidentul ${incident.name}`, 'info');
-              gameState.aiStatus = `A alocat ${idleUnit.name} la ${incident.name}`;
-              stateChanged = true;
+              addLog(`Operatorul AI a alocat ${idleUnit.name} (Rol neocupat) la incidentul ${incident.name}`, 'info');
               dispatchedThisTick = true;
-              aiOp.lastActionTime = Date.now();
-              break; // dispatch one per tick to look natural
+              gameState.lastAiTime = Date.now();
+              stateChanged = true;
+              break;
             }
           }
         }
@@ -732,7 +795,7 @@ async function startServer() {
     cors: { origin: "*" }
   });
 
-  const connectedOperators = new Map<string, string>();
+  const connectedOperators = new Map<string, Operator>();
 
   io.on("connection", (socket) => {
     console.log("Client connected:", socket.id);
@@ -740,8 +803,44 @@ async function startServer() {
     // Send initial state
     socket.emit("stateUpdate", gameState);
 
-    socket.on("join", ({ name }) => {
-      connectedOperators.set(socket.id, name);
+    socket.on("restartGame", () => {
+      gameState.isGameOver = false;
+      gameState.gameOverReason = undefined;
+      gameState.reputation = 50;
+      gameState.budget = 50000;
+      gameState.resolvedCountTotal = 0;
+      gameState.resolvedCountPerOperator = {};
+      gameState.incidents = {};
+      gameState.incidentRate = 1.0;
+      
+      // Respawn 2 incidents
+      spawnIncident();
+      spawnIncident();
+      
+      // Reset units to idle at station and full fuel
+      Object.values(gameState.units).forEach(u => {
+        u.state = 'idle';
+        u.fuel = 100;
+        u.targetIncidentId = null;
+        u.route = undefined;
+        const station = gameState.stations.find(s => s.id === u.targetStationId);
+        if (station) {
+           u.location = { ...station.location };
+        }
+      });
+      
+      io.emit("stateUpdate", gameState);
+    });
+    socket.on("toggleBreak", () => {
+      const op = connectedOperators.get(socket.id);
+      if (op) {
+        op.isOnBreak = !op.isOnBreak;
+        gameState.operators = Array.from(connectedOperators.values());
+        io.emit("stateUpdate", gameState);
+      }
+    });
+    socket.on("join", ({ name, roles }) => {
+      connectedOperators.set(socket.id, { name, roles: roles || [] });
       gameState.operators = Array.from(connectedOperators.values());
       io.emit("stateUpdate", gameState);
     });
@@ -826,26 +925,10 @@ async function startServer() {
       }
     });
 
-    socket.on("rentOperator", () => {
-      const INITIAL_COST = 3000;
-      if (gameState.budget >= INITIAL_COST && gameState.rentedOperators.length === 0) {
-        gameState.budget -= INITIAL_COST;
-        gameState.rentedOperators.push({ id: `op_${Date.now()}`, expiresAt: Infinity, lastActionTime: 0, lastChargeTime: Date.now() });
-        addLog('Ai activat Operatorul AI (3000 RON / minut).', 'success');
-        io.emit("stateUpdate", gameState);
-      } else if (gameState.rentedOperators.length > 0) {
-        addLog('Ai deja un Operator AI activ.', 'warning');
-        io.emit("stateUpdate", gameState);
-      }
-    });
+    
+        
 
-    socket.on("fireOperator", () => {
-       if (gameState.rentedOperators.length > 0) {
-         gameState.rentedOperators = [];
-         addLog('Ai concediat Operatorul AI.', 'info');
-         io.emit("stateUpdate", gameState);
-       }
-    });
+    
 
     socket.on("refuelUnit", ({ unitId }) => {
       const COST = 1000;
@@ -879,8 +962,8 @@ async function startServer() {
           }
         } else {
           // Standard cost
-          if (gameState.budget >= 1000) {
-             gameState.budget -= 1000;
+          if (gameState.budget >= 2500) {
+                    gameState.budget -= 2500;
              incident.complication.resolved = true;
              incident.activities!.unshift('Procedura a fost aprobată. Situația este sub control.');
              addLog(`Procedură aprobată pentru ${incident.name}.`, 'info');

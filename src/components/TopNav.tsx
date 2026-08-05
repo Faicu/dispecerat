@@ -5,7 +5,7 @@ import { WEATHER_LABELS } from '../constants';
 
 import { CloudRain, CloudLightning, Snowflake, Sun, Volume2, VolumeX } from 'lucide-react';
 import { isMuted as audioIsMuted, setMuted as audioSetMuted } from '../audio';
-export default function TopNav({ playerName, gameState }: { playerName: string, gameState: GameState }) {
+export default function TopNav({ playerName, gameState, onToggleBreak }: { playerName: string, gameState: GameState, onToggleBreak?: () => void }) {
   const [isMuted, setIsMuted] = useState(audioIsMuted);
   const toggleMute = () => {
     const newVal = !isMuted;
@@ -32,13 +32,20 @@ export default function TopNav({ playerName, gameState }: { playerName: string, 
         <div className="flex gap-4 text-xs font-mono">
           <div><span className="opacity-40">CITY:</span> BUCHAREST</div>
           <div><span className="opacity-40">OPERATOR:</span> {playerName.toUpperCase()}</div>
+          {onToggleBreak && (
+             <button onClick={onToggleBreak} className="ml-2 px-2 py-0.5 bg-slate-800 border border-slate-700 hover:bg-slate-700 text-[10px] uppercase font-bold rounded transition-colors text-slate-300">
+               {gameState.operators.find(o => o.name === playerName)?.isOnBreak ? 'Reia Postul' : 'Ia Pauză (AI)'}
+             </button>
+          )}
           {gameState.operators.length > 0 && (
             <div className="flex items-center gap-2">
                <span className="opacity-40">TEAM:</span> 
                <div className="flex gap-1">
                  {gameState.operators.slice(0, 3).map((op, i) => (
-                   <div key={i} title={op} className={`w-5 h-5 rounded bg-slate-800 border ${op === playerName ? 'border-sky-500 text-sky-400' : 'border-slate-700 text-slate-400'} flex items-center justify-center text-[9px] font-bold uppercase`}>
-                     {op.substring(0, 2)}
+                   <div key={i} title={`${op.name} - ${op.roles.join(', ')} ${op.isOnBreak ? '(Pauză)' : ''}`} className={`relative px-1.5 h-5 rounded bg-slate-800 border ${op.name === playerName ? 'border-sky-500 text-sky-400' : 'border-slate-700 text-slate-400'} flex items-center justify-center text-[9px] font-bold uppercase`}>
+                     {op.name.substring(0, 2)}
+     <span className="ml-1 text-[7px] text-slate-500">{op.roles.map(r => r.substring(0,2).toUpperCase()).join(',')}</span>
+                     {op.isOnBreak && <div className="absolute -top-1 -right-1 w-2 h-2 bg-yellow-500 rounded-full" title="În Pauză"></div>}
                    </div>
                  ))}
                  {gameState.operators.length > 3 && (

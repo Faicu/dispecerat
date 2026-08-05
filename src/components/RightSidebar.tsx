@@ -1,17 +1,30 @@
-import { GameState } from '../types';
+import { GameState, OperatorRole } from '../types';
 import { INCIDENT_THEME, INCIDENT_COUNTDOWN_MS } from '../constants';
 import { formatReward } from '../utils';
 
 interface RightSidebarProps {
+  playerRoles: OperatorRole[];
   gameState: GameState;
   selectedIncidentId: string | null;
   onSelectIncident: (id: string | null) => void;
   onResolveComplication: (incidentId: string, optionId?: string) => void;
 }
 
-export default function RightSidebar({ gameState, selectedIncidentId, onSelectIncident, onResolveComplication }: RightSidebarProps) {
-  const incidentsList = Object.values(gameState.incidents).sort((a, b) => b.createdAt - a.createdAt);
+export default function RightSidebar({ gameState, selectedIncidentId, onSelectIncident, onResolveComplication, playerRoles }: RightSidebarProps) {
+  const incidentsList = Object.values(gameState.incidents).sort((a, b) => {
+    if (b.severity !== a.severity) {
+      return b.severity - a.severity;
+    }
+    return b.createdAt - a.createdAt;
+  });
   const now = gameState.gameTime || Date.now();
+  const getRoleForUnit = (type: string) => {
+    if (type === 'police' || type === 'swat' || type === 'helicopter') return 'police';
+    if (type === 'fire') return 'fire';
+    if (type === 'ambulance') return 'ambulance';
+    if (type === 'gendarmerie') return 'gendarmerie';
+    return null;
+  };
 
   return (
     <div className="w-72 border-l border-slate-800 bg-slate-900/50 flex flex-col z-10 relative">
@@ -90,14 +103,29 @@ export default function RightSidebar({ gameState, selectedIncidentId, onSelectIn
                 )}
 
                 <div className="mt-2 flex justify-between items-center">
-                  <div className="flex gap-1 flex-wrap w-full mt-2">
+                  <div className="text-[10px] font-bold text-slate-400 mt-2 uppercase tracking-widest border-t border-slate-700/50 pt-2 mb-1">
+                    Echipaje Necesare:
+                  </div>
+                  <div className="flex gap-1.5 flex-wrap w-full mb-2">
                     {incident.requiredUnits.map((req, idx) => {
                       const assigned = incident.assignedUnits.filter(uid => gameState.units[uid]?.type === req);
                       const isAssigned = assigned.length > idx;
+                      const reqRole = getRoleForUnit(req);
+                      const isRelevantToPlayer = reqRole && playerRoles.includes(reqRole as OperatorRole);
+                      
+                      let displayClasses = '';
+                      if (isAssigned) {
+                        displayClasses = 'bg-green-900/40 border-green-500 text-green-400 shadow-[0_0_10px_rgba(34,197,94,0.2)] text-[10px] font-bold';
+                      } else if (isRelevantToPlayer) {
+                        displayClasses = 'bg-sky-900/40 border-sky-500 text-sky-400 shadow-[0_0_10px_rgba(14,165,233,0.2)] text-[11px] font-black animate-pulse';
+                      } else {
+                        displayClasses = 'bg-slate-900 border-slate-700 text-slate-500 text-[9px] opacity-70';
+                      }
+
                       return (
-                        <div key={idx} className={`flex items-center gap-1 text-[9px] font-bold uppercase px-1.5 py-0.5 rounded border ${isAssigned ? 'bg-green-900/40 border-green-500 text-green-400' : 'bg-slate-800 border-slate-600 text-slate-400'}`}>
-                          <div className={`w-1.5 h-1.5 rounded-full ${isAssigned ? 'bg-green-500' : 'bg-slate-600'}`}></div>
-                          {req.substring(0, 3)}
+                        <div key={idx} className={`flex items-center gap-1.5 uppercase px-2 py-1 rounded-sm border-2 ${displayClasses}`}>
+                          <div className={`w-1.5 h-1.5 rounded-full ${isAssigned ? 'bg-green-500' : (isRelevantToPlayer ? 'bg-sky-400' : 'bg-slate-700')}`}></div>
+                          {req}
                         </div>
                       );
                     })}

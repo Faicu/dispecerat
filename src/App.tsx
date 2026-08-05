@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { io, Socket } from 'socket.io-client';
-import { GameState, UnitType } from './types';
+import { GameState, UnitType, OperatorRole } from './types';
 import MapView from './components/MapView';
 import TopNav from './components/TopNav';
 import LeftSidebar from './components/LeftSidebar';
@@ -37,6 +37,7 @@ export default function App() {
   const [selectedIncidentId, setSelectedIncidentId] = useState<string | null>(null);
   const [selectedUnitId, setSelectedUnitId] = useState<string | null>(null);
   const [playerName, setPlayerName] = useState('');
+  const [selectedRoles, setSelectedRoles] = useState<OperatorRole[]>([]);
   const [isJoined, setIsJoined] = useState(false);
   
   const prevIncidentsRef = useRef<number>(0);
@@ -82,11 +83,17 @@ export default function App() {
 
   const handleJoin = (e: React.FormEvent) => {
     e.preventDefault();
-    if (playerName.trim()) {
+    if (playerName.trim() && selectedRoles.length > 0) {
       playClick();
-      socket.emit('join', { name: playerName });
+      socket.emit('join', { name: playerName, roles: selectedRoles });
       setIsJoined(true);
     }
+  };
+
+  const toggleRole = (role: OperatorRole) => {
+    setSelectedRoles(prev => 
+      prev.includes(role) ? prev.filter(r => r !== role) : [...prev, role]
+    );
   };
 
   const handleDispatch = (unitId: string) => {
@@ -94,6 +101,16 @@ export default function App() {
       playDispatch();
       socket.emit('dispatchUnit', { unitId, incidentId: selectedIncidentId, operator: playerName });
     }
+  };
+
+  const handleRefuel = (unitId: string) => {
+    playClick();
+    socket.emit('refuelUnit', { unitId });
+  };
+
+  const handleReturnToBase = (unitId: string) => {
+    playClick();
+    socket.emit('returnToBase', { unitId });
   };
 
   const handlePurchase = (type: UnitType) => {
@@ -133,11 +150,34 @@ export default function App() {
               type="text" 
               value={playerName}
               onChange={e => setPlayerName(e.target.value)}
-              className="w-full bg-black/40 border border-slate-700 rounded px-4 py-3 text-white focus:outline-none focus:border-red-500 transition-colors font-mono text-sm"
+              className="w-full bg-black/40 border border-slate-700 rounded px-4 py-3 text-white focus:outline-none focus:border-sky-500 transition-colors font-mono text-sm mb-4"
               placeholder="e.g. Disp. John"
               required
               autoFocus
             />
+            
+            <label className="block text-[10px] font-bold text-slate-500 mb-2 uppercase tracking-widest">Selectează Rolurile</label>
+            <div className="flex flex-col gap-2">
+              {(['police', 'fire', 'ambulance', 'gendarmerie'] as OperatorRole[]).map(role => (
+                <label key={role} className={`flex items-center gap-3 p-3 rounded border cursor-pointer transition-colors ${selectedRoles.includes(role) ? 'bg-sky-900/30 border-sky-500 text-sky-400' : 'bg-slate-800 border-slate-700 text-slate-400 hover:bg-slate-700'}`}>
+                  <input 
+                    type="checkbox" 
+                    className="sr-only" 
+                    checked={selectedRoles.includes(role)} 
+                    onChange={() => toggleRole(role)} 
+                  />
+                  <div className={`w-4 h-4 rounded-sm flex items-center justify-center border ${selectedRoles.includes(role) ? 'bg-sky-500 border-sky-400' : 'border-slate-500'}`}>
+                    {selectedRoles.includes(role) && <span className="text-white text-[10px]">✔</span>}
+                  </div>
+                  
+  <div className="flex-1 flex justify-between items-center">
+    <span className="font-bold text-xs uppercase tracking-wide">Operator {role === 'police' ? 'Poliție' : role === 'fire' ? 'Pompieri' : role === 'ambulance' ? 'Ambulanță' : 'Jandarmi'}</span>
+    <span className="text-[10px] opacity-70">{(gameState?.operators?.filter(o => o.roles.includes(role)).length || 0) > 0 ? `${gameState.operators.filter(o => o.roles.includes(role)).length} activi` : 'Liber'}</span>
+  </div>
+  
+                </label>
+              ))}
+            </div>
           </div>
           <button type="submit" className="w-full bg-slate-800 border border-slate-700 hover:bg-slate-700 hover:border-slate-500 text-white font-bold py-3 text-xs uppercase tracking-widest rounded transition-colors shadow-sm">
             Start Shift
@@ -148,6 +188,12 @@ export default function App() {
     );
   }
 
+  const isPlayerOnBreak = gameState?.operators?.find(o => o.name === playerName)?.isOnBreak;
+      
+  const handleRestart = () => {
+    socket.emit('restartGame');
+  };
+  
   const renderMapOverlay = () => {
     if (!gameState || !gameState.gameTime) return null;
     
@@ -184,19 +230,40 @@ export default function App() {
     );
   };
 
+  const handleSelectUnit = (unitId: string | null) => {
+    if (!unitId) {
+      setSelectedUnitId(null);
+      return;
+    }
+    if (!gameState) return;
+    const unit = gameState.units[unitId];
+    if (unit) {
+      const getRoleForUnitType = (type: string) => {
+        if (type === 'police' || type === 'swat' || type === 'helicopter') return 'police';
+        if (type === 'fire') return 'fire';
+        if (type === 'ambulance') return 'ambulance';
+        if (type === 'gendarmerie') return 'gendarmerie';
+        return null;
+      };
+      const role = getRoleForUnitType(unit.type);
+      if (role && selectedRoles.includes(role as OperatorRole)) {
+        setSelectedUnitId(unitId);
+      }
+    }
+  };
+
   return (
     <div className="w-screen h-screen bg-slate-950 text-slate-300 font-sans flex flex-col overflow-hidden select-none relative">
       <div aria-hidden="true" className="absolute inset-0 pointer-events-none scanlines z-50 opacity-20 mix-blend-overlay"></div>
-      <TopNav playerName={playerName} gameState={gameState} />
+      <TopNav playerName={playerName} gameState={gameState} onToggleBreak={() => socket.emit('toggleBreak')} />
       
       <div className="flex-1 flex overflow-hidden">
         <LeftSidebar 
           gameState={gameState} 
           onPurchase={handlePurchase} 
-          onRentOperator={() => socket.emit('rentOperator')} 
-          onFireOperator={() => socket.emit('fireOperator')}
           onSetIncidentRate={(rate) => socket.emit('setIncidentRate', { rate })}
           onRefuelAll={() => socket.emit('refuelAll')}
+          playerRoles={selectedRoles}
         />
         
         <div className="flex-1 relative bg-slate-900 overflow-hidden">
@@ -205,28 +272,65 @@ export default function App() {
             selectedIncidentId={selectedIncidentId}
             onSelectIncident={setSelectedIncidentId}
             selectedUnitId={selectedUnitId}
-            onSelectUnit={setSelectedUnitId}
+            onSelectUnit={handleSelectUnit}
             onMapClick={handleMapClick}
           />
           {renderMapOverlay()}
+   
+          {gameState?.isGameOver && (
+            <div className="absolute inset-0 z-50 bg-black/90 backdrop-blur-sm flex flex-col items-center justify-center text-center p-8">
+              <div className="text-red-500 mb-6">
+                 <svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"></path><path d="M12 9v4"></path><path d="M12 17h.01"></path></svg>
+              </div>
+              <h2 className="text-4xl font-black uppercase tracking-widest text-white mb-2">Game Over</h2>
+              <p className="text-slate-400 max-w-md text-sm leading-relaxed mb-8">{gameState.gameOverReason}</p>
+              
+              <div className="flex gap-8 mb-8 text-slate-300">
+                 <div className="flex flex-col items-center">
+                    <div className="text-3xl font-mono font-bold text-sky-400">{gameState.resolvedCountTotal}</div>
+                    <div className="text-[10px] uppercase tracking-widest opacity-50 mt-1">Soluționate</div>
+                 </div>
+                 <div className="flex flex-col items-center">
+                    <div className="text-3xl font-mono font-bold text-emerald-400">€{gameState.budget > 1000 ? (gameState.budget / 1000).toFixed(1) + 'k' : gameState.budget}</div>
+                    <div className="text-[10px] uppercase tracking-widest opacity-50 mt-1">Buget Final</div>
+                 </div>
+              </div>
+              
+              <button 
+                onClick={handleRestart}
+                className="bg-red-600 hover:bg-red-500 text-white px-8 py-3 rounded uppercase font-bold tracking-widest transition-colors shadow-[0_0_20px_rgba(220,38,38,0.4)]"
+              >
+                Începe din nou
+              </button>
+            </div>
+          )}
+
+          {isPlayerOnBreak && (
+            <div className="absolute top-6 left-1/2 -translate-x-1/2 z-50 bg-yellow-500/90 text-yellow-950 px-6 py-2 rounded-full font-bold uppercase tracking-widest text-[10px] shadow-[0_0_30px_rgba(234,179,8,0.3)] backdrop-blur border border-yellow-400 flex items-center gap-2">
+              <span className="w-2 h-2 rounded-full bg-yellow-900 animate-pulse"></span>
+              Mod Spectator - AI-ul a preluat postul tău
+            </div>
+          )}
           <div className="absolute inset-0 pointer-events-none shadow-[inset_0_0_100px_rgba(15,23,42,0.8)] z-10"></div>
         </div>
         
-        <RightSidebar 
+        <RightSidebar
           gameState={gameState}
           selectedIncidentId={selectedIncidentId}
           onSelectIncident={setSelectedIncidentId}
           onResolveComplication={(incidentId, optionId) => socket.emit('resolveComplication', { incidentId, optionId })}
+          playerRoles={selectedRoles}
         />
       </div>
       
       <BottomConsole 
-        gameState={gameState}
+        gameState={gameState} 
         selectedIncidentId={selectedIncidentId}
         selectedUnitId={selectedUnitId}
         onDispatch={handleDispatch}
-        onRefuel={(unitId) => socket.emit('refuelUnit', { unitId })}
-        onReturnToBase={(unitId) => socket.emit('returnToBase', { unitId })}
+        onRefuel={handleRefuel}
+        onReturnToBase={handleReturnToBase}
+        playerRoles={selectedRoles}
       />
 
       {/* Scanline / Grain Overlay for Game Feel */}

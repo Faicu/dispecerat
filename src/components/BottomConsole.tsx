@@ -2,7 +2,9 @@ import { GameState } from '../types';
 import { UNIT_THEME, REFUEL_COST } from '../constants';
 import { calculateETA, formatReward } from '../utils';
 
+import { OperatorRole } from '../types';
 interface BottomConsoleProps {
+  playerRoles: OperatorRole[];
   gameState: GameState;
   selectedIncidentId: string | null;
   selectedUnitId: string | null;
@@ -11,15 +13,29 @@ interface BottomConsoleProps {
   onReturnToBase: (unitId: string) => void;
 }
 
-export default function BottomConsole({ gameState, selectedIncidentId, selectedUnitId, onDispatch, onRefuel, onReturnToBase }: BottomConsoleProps) {
+export default function BottomConsole({ gameState, selectedIncidentId, selectedUnitId, onDispatch, onRefuel, onReturnToBase, playerRoles }: BottomConsoleProps) {
   const incident = selectedIncidentId ? gameState.incidents[selectedIncidentId] : null;
   const selectedUnit = selectedUnitId ? gameState.units[selectedUnitId] : null;
+  const getRoleForUnitType = (type: string) => {
+    if (type === 'police' || type === 'swat' || type === 'helicopter') return 'police';
+    if (type === 'fire') return 'fire';
+    if (type === 'ambulance') return 'ambulance';
+    if (type === 'gendarmerie') return 'gendarmerie';
+    return null;
+  };
+
+  const hasRoleForUnit = (type: string) => {
+    const role = getRoleForUnitType(type);
+    return role ? playerRoles.includes(role as OperatorRole) : false;
+  };
+
   const availableUnits = Object.values(gameState.units).filter(u => 
-    u.state === 'idle' || 
+    (u.state === 'idle' || 
     u.state === 'patrolling' || 
     u.state === 'moving' || 
     u.state === 'routing' || 
-    u.state === 'transporting'
+    u.state === 'transporting') &&
+    hasRoleForUnit(u.type)
   );
 
   if ((!incident || incident.resolved) && !selectedUnit) {

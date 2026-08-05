@@ -14,20 +14,35 @@ const IDLE_STYLES = {
 
 const getUnitStyles = (type: UnitType, isIdle: boolean) => (isIdle ? IDLE_STYLES : UNIT_THEME[type]);
 
-export default function LeftSidebar({ gameState, onPurchase, onRentOperator, onFireOperator, onSetIncidentRate, onRefuelAll }: { gameState: GameState, onPurchase: (type: UnitType) => void, onRentOperator: () => void, onFireOperator: () => void, onSetIncidentRate: (rate: number) => void, onRefuelAll: () => void }) {
+import { OperatorRole } from '../types';
+
+export default function LeftSidebar({ gameState, onPurchase, onSetIncidentRate, onRefuelAll, playerRoles }: { gameState: GameState, onPurchase: (type: UnitType) => void, onSetIncidentRate: (rate: number) => void, onRefuelAll: () => void, playerRoles: OperatorRole[] }) {
   const [activeTab, setActiveTab] = useState<'units' | 'logs'>('units');
   const [expandedCategories, setExpandedCategories] = useState<string[]>(['police', 'fire', 'ambulance', 'gendarmerie', 'swat', 'helicopter']);
   const [showPurchaseMenu, setShowPurchaseMenu] = useState(false);
   const toggleCategory = (type: string) => setExpandedCategories(prev => prev.includes(type) ? prev.filter(c => c !== type) : [...prev, type]);
   const unitsList = Object.values(gameState.units || {});
 
-  const groupedUnits: Record<UnitType, typeof unitsList> = {
-    police: unitsList.filter(u => u.type === 'police'),
-    gendarmerie: unitsList.filter(u => u.type === 'gendarmerie'),
-    swat: unitsList.filter(u => u.type === 'swat'),
-    helicopter: unitsList.filter(u => u.type === 'helicopter'),
-    ambulance: unitsList.filter(u => u.type === 'ambulance'),
-    fire: unitsList.filter(u => u.type === 'fire'),
+  const getRoleForUnitType = (t: string) => {
+    if (t === 'police' || t === 'swat' || t === 'helicopter') return 'police';
+    if (t === 'fire') return 'fire';
+    if (t === 'ambulance') return 'ambulance';
+    if (t === 'gendarmerie') return 'gendarmerie';
+    return null;
+  };
+  const hasRoleForUnit = (type: string) => {
+    const role = getRoleForUnitType(type);
+    return role && playerRoles.includes(role as OperatorRole);
+  };
+  const filteredUnitsList = unitsList.filter(u => hasRoleForUnit(u.type));
+
+  const groupedUnits: Record<UnitType, typeof filteredUnitsList> = {
+    police: filteredUnitsList.filter(u => u.type === 'police'),
+    gendarmerie: filteredUnitsList.filter(u => u.type === 'gendarmerie'),
+    swat: filteredUnitsList.filter(u => u.type === 'swat'),
+    helicopter: filteredUnitsList.filter(u => u.type === 'helicopter'),
+    ambulance: filteredUnitsList.filter(u => u.type === 'ambulance'),
+    fire: filteredUnitsList.filter(u => u.type === 'fire'),
   };
 
   return (
@@ -37,7 +52,7 @@ export default function LeftSidebar({ gameState, onPurchase, onRentOperator, onF
           onClick={() => setActiveTab('units')}
           className={`flex-1 p-3 text-center transition-colors ${activeTab === 'units' ? 'text-blue-400 border-b-2 border-blue-500' : 'text-slate-500 hover:text-slate-300'}`}
         >
-          Unități ({unitsList.length})
+          Unități ({filteredUnitsList.length})
         </button>
         <button 
           onClick={() => setActiveTab('logs')}
@@ -146,7 +161,17 @@ export default function LeftSidebar({ gameState, onPurchase, onRentOperator, onF
          </button>
          {showPurchaseMenu && (
            <div className="mt-2 grid grid-cols-2 gap-1 text-[9px] uppercase font-bold text-center">
-              {(['police', 'ambulance', 'fire', 'gendarmerie', 'swat', 'helicopter'] as UnitType[]).map(type => {
+              {(['police', 'ambulance', 'fire', 'gendarmerie', 'swat', 'helicopter'] as UnitType[]).filter(type => {
+                  const getRoleForUnitType = (t: string) => {
+                    if (t === 'police' || t === 'swat' || t === 'helicopter') return 'police';
+                    if (t === 'fire') return 'fire';
+                    if (t === 'ambulance') return 'ambulance';
+                    if (t === 'gendarmerie') return 'gendarmerie';
+                    return null;
+                  };
+                  const role = getRoleForUnitType(type);
+                  return role && playerRoles.includes(role as OperatorRole);
+                }).map(type => {
                 const canAfford = gameState.budget >= UNIT_PRICES[type];
                 return (
                   <button
@@ -174,17 +199,6 @@ export default function LeftSidebar({ gameState, onPurchase, onRentOperator, onF
             </div>
          </div>
          <div className="mt-2 pt-2 border-t border-slate-700/50 flex gap-2">
-            {(gameState.rentedOperators && gameState.rentedOperators.length > 0) ? (
-              <button onClick={onFireOperator} className="flex-1 bg-red-900/40 border border-red-800 hover:bg-red-800/60 hover:border-red-500 text-red-300 p-1.5 rounded transition-colors text-[10px] uppercase font-bold tracking-widest flex flex-col items-center justify-center">
-                <span>Concediază</span>
-                <span className="text-red-400 text-[8px]">Operator AI</span>
-              </button>
-            ) : (
-              <button onClick={onRentOperator} className="flex-1 bg-fuchsia-900/40 border border-fuchsia-800 hover:bg-fuchsia-800/60 hover:border-fuchsia-500 text-fuchsia-300 p-1.5 rounded transition-colors text-[10px] uppercase font-bold tracking-widest flex flex-col items-center justify-center">
-                <span>Operator AI</span>
-                <span className="text-emerald-500 text-[8px]">€3k/min</span>
-              </button>
-            )}
             <button onClick={onRefuelAll} className="flex-1 bg-orange-900/40 border border-orange-800 hover:bg-orange-800/60 hover:border-orange-500 text-orange-300 p-1.5 rounded transition-colors text-[10px] uppercase font-bold tracking-widest flex flex-col items-center justify-center">
               <span>Realimentare Gen.</span>
               <span className="text-emerald-500 text-[8px]">€{REFUEL_ALL_COST_PER_UNIT}/unit</span>
