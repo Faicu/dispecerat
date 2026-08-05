@@ -1,103 +1,222 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { GameState } from '../types';
-import { formatGameTime } from '../utils';
 import { WEATHER_LABELS } from '../constants';
-
-import { CloudRain, CloudLightning, Snowflake, Sun, Volume2, VolumeX } from 'lucide-react';
+import { CloudRain, CloudLightning, Snowflake, Sun, Settings, X, Volume2, VolumeX, RotateCcw, Users, Waves, Wind } from 'lucide-react';
 import { isMuted as audioIsMuted, setMuted as audioSetMuted } from '../audio';
-export default function TopNav({ playerName, gameState, onToggleBreak }: { playerName: string, gameState: GameState, onToggleBreak?: () => void }) {
+
+const WAVE_LABELS: Record<string, { label: string; color: string }> = {
+  calm:     { label: 'Liniște',   color: 'text-emerald-400' },
+  building: { label: 'Tensiune',  color: 'text-yellow-400'  },
+  wave:     { label: 'Val!',      color: 'text-red-400'     },
+  decay:    { label: 'Calmare',   color: 'text-sky-400'     },
+};
+
+export default function TopNav({
+  playerName,
+  gameState,
+  onToggleBreak,
+  onReset,
+}: {
+  playerName: string;
+  gameState: GameState;
+  onToggleBreak?: () => void;
+  onReset?: () => void;
+}) {
   const [isMuted, setIsMuted] = useState(audioIsMuted);
-  const toggleMute = () => {
-    const newVal = !isMuted;
-    setIsMuted(newVal);
-    audioSetMuted(newVal);
-  };
+  const [settingsOpen, setSettingsOpen] = useState(false);
   const [realTime, setRealTime] = useState(new Date().toLocaleTimeString());
+  const panelRef = useRef<HTMLDivElement>(null);
+
+  const toggleMute = () => {
+    const v = !isMuted;
+    setIsMuted(v);
+    audioSetMuted(v);
+  };
 
   useEffect(() => {
     const timer = setInterval(() => setRealTime(new Date().toLocaleTimeString()), 1000);
     return () => clearInterval(timer);
   }, []);
 
+  // Close panel when clicking outside
+  useEffect(() => {
+    if (!settingsOpen) return;
+    const handler = (e: MouseEvent) => {
+      if (panelRef.current && !panelRef.current.contains(e.target as Node)) {
+        setSettingsOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, [settingsOpen]);
+
+  const wave = WAVE_LABELS[gameState.wavePhase ?? 'calm'];
+  const myOperator = gameState.operators.find(o => o.name === playerName);
+
   return (
-    <div className="h-12 border-b border-slate-800 bg-slate-900/80 flex items-center justify-between px-4 z-20 relative">
-      <div className="flex items-center gap-6">
-        <div className="flex items-center gap-2">
-          <div className="w-3 h-3 bg-red-600 animate-pulse rounded-full"></div>
-          <span className="font-black text-white tracking-tighter text-xl">
-            112 <span className="font-light opacity-60">OPERATOR WEB</span>
+    <div className="h-11 border-b border-slate-800 bg-slate-950/90 flex items-center justify-between px-3 z-20 relative shrink-0 backdrop-blur-sm">
+      {/* LEFT — logo + operator info */}
+      <div className="flex items-center gap-3 min-w-0">
+        <div className="flex items-center gap-1.5 shrink-0">
+          <div className="w-2 h-2 bg-red-600 animate-pulse rounded-full" />
+          <span className="font-black text-white tracking-tighter text-base leading-none">
+            112
           </span>
         </div>
-        <div className="h-6 w-px bg-slate-700"></div>
-        <div className="flex gap-4 text-xs font-mono">
-          <div><span className="opacity-40">CITY:</span> BUCHAREST</div>
-          <div><span className="opacity-40">OPERATOR:</span> {playerName.toUpperCase()}</div>
-          {onToggleBreak && (
-             <button onClick={onToggleBreak} className="ml-2 px-2 py-0.5 bg-slate-800 border border-slate-700 hover:bg-slate-700 text-[10px] uppercase font-bold rounded transition-colors text-slate-300">
-               {gameState.operators.find(o => o.name === playerName)?.isOnBreak ? 'Reia Postul' : 'Ia Pauză (AI)'}
-             </button>
-          )}
-          {gameState.operators.length > 0 && (
-            <div className="flex items-center gap-2">
-               <span className="opacity-40">TEAM:</span> 
-               <div className="flex gap-1">
-                 {gameState.operators.slice(0, 3).map((op, i) => (
-                   <div key={i} title={`${op.name} - ${op.roles.join(', ')} ${op.isOnBreak ? '(Pauză)' : ''}`} className={`relative px-1.5 h-5 rounded bg-slate-800 border ${op.name === playerName ? 'border-sky-500 text-sky-400' : 'border-slate-700 text-slate-400'} flex items-center justify-center text-[9px] font-bold uppercase`}>
-                     {op.name.substring(0, 2)}
-     <span className="ml-1 text-[7px] text-slate-500">{op.roles.map(r => r.substring(0,2).toUpperCase()).join(',')}</span>
-                     {op.isOnBreak && <div className="absolute -top-1 -right-1 w-2 h-2 bg-yellow-500 rounded-full" title="În Pauză"></div>}
-                   </div>
-                 ))}
-                 {gameState.operators.length > 3 && (
-                   <div className="text-[10px] text-slate-500">+{gameState.operators.length - 3}</div>
-                 )}
-               </div>
-            </div>
-          )}
-          {gameState.rentedOperators && gameState.rentedOperators.length > 0 && (
-             <div className="flex items-center gap-1.5 bg-fuchsia-900/30 text-fuchsia-400 px-2 py-1 rounded border border-fuchsia-800/50" title={gameState.aiStatus || 'Activ și în așteptare'}>
-               <span className="w-1.5 h-1.5 rounded-full bg-fuchsia-500 animate-pulse"></span>
-               <span className="text-[9px] font-bold uppercase tracking-wider">AI ON</span>
-             </div>
-          )}
+
+        <div className="h-5 w-px bg-slate-700 shrink-0" />
+
+        {playerName && (
+          <div className="flex items-center gap-2 text-[10px] font-mono min-w-0">
+            <span className="text-slate-500 shrink-0">OP:</span>
+            <span className="text-sky-400 font-bold truncate max-w-[80px]">{playerName.toUpperCase()}</span>
+            {onToggleBreak && (
+              <button
+                onClick={onToggleBreak}
+                className={`shrink-0 px-1.5 py-0.5 rounded text-[9px] font-bold uppercase border transition-colors ${myOperator?.isOnBreak ? 'bg-yellow-500/20 border-yellow-600 text-yellow-400' : 'bg-slate-800 border-slate-700 text-slate-400 hover:text-slate-300'}`}
+              >
+                {myOperator?.isOnBreak ? 'AI' : 'Pauză'}
+              </button>
+            )}
+          </div>
+        )}
+      </div>
+
+      {/* CENTER — key stats */}
+      <div className="hidden sm:flex items-center gap-4 text-[10px] font-mono absolute left-1/2 -translate-x-1/2">
+        <div className="flex flex-col items-center">
+          <span className={`font-bold ${gameState.reputation > 50 ? 'text-emerald-400' : gameState.reputation > 20 ? 'text-yellow-400' : 'text-red-500'}`}>
+            {gameState.reputation ?? 0}%
+          </span>
+          <span className="text-slate-600 text-[8px] uppercase tracking-wider">Rep</span>
+        </div>
+        <div className="h-4 w-px bg-slate-800" />
+        <div className="flex flex-col items-center">
+          <span className="text-emerald-400 font-bold">€{(gameState.budget ?? 0).toLocaleString()}</span>
+          <span className="text-slate-600 text-[8px] uppercase tracking-wider">Buget</span>
+        </div>
+        <div className="h-4 w-px bg-slate-800" />
+        <div className="flex flex-col items-center">
+          <span className="text-sky-400 font-bold">{gameState.resolvedCountTotal ?? 0}</span>
+          <span className="text-slate-600 text-[8px] uppercase tracking-wider">Soluționate</span>
+        </div>
+        <div className="h-4 w-px bg-slate-800" />
+        <div className="flex flex-col items-center">
+          <span className={`font-bold ${wave.color}`}>{wave.label}</span>
+          <span className="text-slate-600 text-[8px] uppercase tracking-wider">Val</span>
         </div>
       </div>
-      
-      <div className="flex items-center gap-8">
-        <div className="flex flex-col items-end border-r border-slate-700 pr-8">
-          <div className="text-xs font-mono text-sky-400 capitalize">
-            {gameState.weather === 'clear' && <Sun size={12} className="inline mr-1" />}
-            {gameState.weather === 'rain' && <CloudRain size={12} className="inline mr-1" />}
-            {gameState.weather === 'storm' && <CloudLightning size={12} className="inline mr-1" />}
-            {gameState.weather === 'snow' && <Snowflake size={12} className="inline mr-1" />}
-            {WEATHER_LABELS[gameState.weather] || gameState.weather}
-          </div>
-          <div className="text-[10px] opacity-40 uppercase tracking-widest">Vremea</div>
-        </div>
-        <div className="flex flex-col items-end border-r border-slate-700 pr-8">
-          <div className={`text-xs font-mono ${gameState.reputation > 50 ? 'text-emerald-400' : gameState.reputation > 20 ? 'text-yellow-400' : 'text-red-500'}`}>
-            {gameState.reputation || 0}%
-          </div>
-          <div className="text-[10px] opacity-40 uppercase tracking-widest">Reputație</div>
-        </div>
-        <div className="flex flex-col items-end border-r border-slate-700 pr-8">
-          <div className="text-xs font-mono text-emerald-400">
-            {gameState.resolvedCountPerOperator?.[playerName] || 0} <span className="opacity-50">/</span> {gameState.resolvedCountTotal || 0}
-          </div>
-          <div className="text-[10px] opacity-40 uppercase tracking-widest">Soluționate</div>
-        </div>
-        <div className="flex flex-col items-end">
-          <div className="text-xs font-mono text-emerald-400">€{gameState.budget?.toLocaleString() || 0}</div>
-          <div className="text-[10px] opacity-40 uppercase tracking-widest">Budget</div>
-        </div>
-        <button onClick={toggleMute} className="text-slate-400 hover:text-white transition-colors">
-          {isMuted ? <VolumeX size={18} /> : <Volume2 size={18} />}
+
+      {/* RIGHT — time + settings */}
+      <div className="flex items-center gap-2 shrink-0" ref={panelRef}>
+        <span className="hidden sm:block text-xs font-mono text-slate-400">{realTime}</span>
+
+        <button
+          onClick={() => setSettingsOpen(v => !v)}
+          className={`p-1.5 rounded border transition-colors ${settingsOpen ? 'bg-slate-700 border-slate-600 text-white' : 'bg-slate-900 border-slate-700 text-slate-400 hover:text-white'}`}
+        >
+          <Settings size={14} />
         </button>
-        <div className="flex items-center gap-4 bg-black/40 px-3 py-1 rounded border border-slate-700">
-          <div className="flex flex-col items-end justify-center">
-            <span className="text-lg font-mono text-white font-bold tracking-widest leading-tight">{realTime}</span>
+
+        {/* Settings panel */}
+        {settingsOpen && (
+          <div className="absolute top-12 right-2 w-72 bg-slate-900 border border-slate-700 rounded-lg shadow-2xl z-50 overflow-hidden">
+            <div className="flex items-center justify-between px-4 py-3 border-b border-slate-800">
+              <span className="text-xs font-bold uppercase tracking-widest text-slate-300">Setări</span>
+              <button onClick={() => setSettingsOpen(false)} className="text-slate-500 hover:text-white">
+                <X size={14} />
+              </button>
+            </div>
+
+            {/* Sound */}
+            <div className="px-4 py-3 border-b border-slate-800 flex items-center justify-between">
+              <div className="flex items-center gap-2 text-sm text-slate-300">
+                {isMuted ? <VolumeX size={15} className="text-slate-500" /> : <Volume2 size={15} className="text-sky-400" />}
+                <span>Sunet</span>
+              </div>
+              <button
+                onClick={toggleMute}
+                className={`relative w-10 h-5 rounded-full border transition-colors ${isMuted ? 'bg-slate-800 border-slate-600' : 'bg-sky-600 border-sky-500'}`}
+              >
+                <span className={`absolute top-0.5 w-4 h-4 rounded-full bg-white shadow transition-all ${isMuted ? 'left-0.5' : 'left-5'}`} />
+              </button>
+            </div>
+
+            {/* Wave status */}
+            <div className="px-4 py-3 border-b border-slate-800">
+              <div className="flex items-center gap-2 mb-2">
+                <Waves size={13} className="text-slate-500" />
+                <span className="text-[10px] uppercase tracking-widest text-slate-500">Status Val Incidente</span>
+              </div>
+              <div className="flex gap-1">
+                {(['calm', 'building', 'wave', 'decay'] as const).map(phase => (
+                  <div
+                    key={phase}
+                    className={`flex-1 py-1 rounded text-center text-[9px] font-bold uppercase border transition-all ${gameState.wavePhase === phase ? `${WAVE_LABELS[phase].color} bg-slate-800 border-slate-600` : 'text-slate-700 border-slate-800'}`}
+                  >
+                    {WAVE_LABELS[phase].label}
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* Weather */}
+            <div className="px-4 py-3 border-b border-slate-800 flex items-center gap-2 text-sm text-slate-300">
+              <Wind size={13} className="text-slate-500" />
+              <span className="text-slate-500 text-xs">Vreme:</span>
+              <span className="text-xs font-mono">{WEATHER_LABELS[gameState.weather] || gameState.weather}</span>
+            </div>
+
+            {/* Active operators */}
+            <div className="px-4 py-3 border-b border-slate-800">
+              <div className="flex items-center gap-2 mb-2">
+                <Users size={13} className="text-slate-500" />
+                <span className="text-[10px] uppercase tracking-widest text-slate-500">
+                  Operatori Activi ({gameState.operators.length})
+                </span>
+              </div>
+              {gameState.operators.length === 0 ? (
+                <p className="text-[10px] text-slate-600 italic">Niciun operator conectat.</p>
+              ) : (
+                <div className="space-y-1 max-h-32 overflow-y-auto">
+                  {gameState.operators.map((op, i) => (
+                    <div key={i} className={`flex items-center justify-between rounded px-2 py-1 ${op.name === playerName ? 'bg-sky-900/30 border border-sky-800/50' : 'bg-slate-800/50'}`}>
+                      <div className="flex items-center gap-1.5">
+                        <div className={`w-1.5 h-1.5 rounded-full ${op.isOnBreak ? 'bg-yellow-500' : 'bg-emerald-500'}`} />
+                        <span className="text-[10px] font-bold text-slate-300">{op.name}</span>
+                        {op.name === playerName && <span className="text-[8px] text-sky-500">(tu)</span>}
+                      </div>
+                      <div className="flex gap-0.5">
+                        {op.roles.map(r => (
+                          <span key={r} className="text-[8px] px-1 py-0.5 bg-slate-700 text-slate-400 rounded uppercase">{r.slice(0, 3)}</span>
+                        ))}
+                        {op.isOnBreak && <span className="text-[8px] px-1 py-0.5 bg-yellow-900/40 text-yellow-500 rounded">AI</span>}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* Reset */}
+            {onReset && (
+              <div className="px-4 py-3">
+                <button
+                  onClick={() => {
+                    if (window.confirm('Resetezi jocul? Toată progresul va fi pierdut.')) {
+                      onReset();
+                      setSettingsOpen(false);
+                    }
+                  }}
+                  className="w-full flex items-center justify-center gap-2 py-2 bg-red-900/30 border border-red-800/60 hover:bg-red-800/40 text-red-400 text-xs font-bold uppercase tracking-wider rounded transition-colors"
+                >
+                  <RotateCcw size={13} />
+                  Reset Joc
+                </button>
+              </div>
+            )}
           </div>
-        </div>
+        )}
       </div>
     </div>
   );

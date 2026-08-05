@@ -6,7 +6,7 @@ import TopNav from './components/TopNav';
 import LeftSidebar from './components/LeftSidebar';
 import RightSidebar from './components/RightSidebar';
 import BottomConsole from './components/BottomConsole';
-import { playClick, playDispatch, playIncident, playSuccess, playError, playSiren, speak, playRadioChatter } from './audio';
+import { playClick, playDispatch, playIncident, playIncidentByType, playSuccess, playError, playSiren, speak, playRadioChatter } from './audio';
 import { UNIT_PRICES } from './constants';
 import { Shield, Map as MapIcon, AlertTriangle, Command } from 'lucide-react';
 
@@ -58,14 +58,15 @@ export default function App() {
       const incidentCount = Object.keys(newState.incidents || {}).length;
       if (incidentCount > prevIncidentsRef.current && prevIncidentsRef.current > 0) {
          const newIncidentId = Object.keys(newState.incidents || {}).find(id => !Object.keys(gameState.incidents || {}).includes(id));
-         if (newIncidentId && newState.incidents[newIncidentId].severity === 3) {
-            playSiren();
-            speak(`Atenție, incident COD 3 raportat: ${newState.incidents[newIncidentId].name}`);
-         } else {
-            playIncident();
-            if (newIncidentId) {
-               speak(`Incident nou raportat: ${newState.incidents[newIncidentId].name}`);
-            }
+         if (newIncidentId) {
+           const inc = newState.incidents[newIncidentId];
+           if (inc.severity === 3) {
+             playSiren();
+             speak(`Atenție, incident COD 3 raportat: ${inc.name}`);
+           } else {
+             playIncidentByType(inc.type);
+             speak(`Incident nou: ${inc.name}`);
+           }
          }
       }
       prevIncidentsRef.current = incidentCount;
@@ -192,10 +193,6 @@ export default function App() {
 
   const isPlayerOnBreak = gameState?.operators?.find(o => o.name === playerName)?.isOnBreak;
       
-  const handleRestart = () => {
-    socket.emit('restartGame');
-  };
-  
   const renderMapOverlay = () => {
     if (!gameState || !gameState.gameTime) return null;
     
@@ -257,7 +254,7 @@ export default function App() {
   return (
     <div className="w-screen h-screen bg-slate-950 text-slate-300 font-sans flex flex-col overflow-hidden select-none relative">
       <div aria-hidden="true" className="absolute inset-0 pointer-events-none scanlines z-50 opacity-20 mix-blend-overlay"></div>
-      <TopNav playerName={playerName} gameState={gameState} onToggleBreak={() => socket.emit('toggleBreak')} />
+      <TopNav playerName={playerName} gameState={gameState} onToggleBreak={() => socket.emit('toggleBreak')} onReset={() => socket.emit('restartGame')} />
       
       <div className="flex-1 flex overflow-hidden relative">
         <div className={`absolute inset-0 z-30 md:relative md:w-64 md:z-0 ${mobileView === 'units' ? 'flex' : 'hidden md:flex'}`}>
@@ -281,33 +278,6 @@ export default function App() {
           />
           {renderMapOverlay()}
    
-          {gameState?.isGameOver && (
-            <div className="absolute inset-0 z-50 bg-black/90 backdrop-blur-sm flex flex-col items-center justify-center text-center p-8">
-              <div className="text-red-500 mb-6">
-                 <svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"></path><path d="M12 9v4"></path><path d="M12 17h.01"></path></svg>
-              </div>
-              <h2 className="text-4xl font-black uppercase tracking-widest text-white mb-2">Game Over</h2>
-              <p className="text-slate-400 max-w-md text-sm leading-relaxed mb-8">{gameState.gameOverReason}</p>
-              
-              <div className="flex gap-8 mb-8 text-slate-300">
-                 <div className="flex flex-col items-center">
-                    <div className="text-3xl font-mono font-bold text-sky-400">{gameState.resolvedCountTotal}</div>
-                    <div className="text-[10px] uppercase tracking-widest opacity-50 mt-1">Soluționate</div>
-                 </div>
-                 <div className="flex flex-col items-center">
-                    <div className="text-3xl font-mono font-bold text-emerald-400">€{gameState.budget > 1000 ? (gameState.budget / 1000).toFixed(1) + 'k' : gameState.budget}</div>
-                    <div className="text-[10px] uppercase tracking-widest opacity-50 mt-1">Buget Final</div>
-                 </div>
-              </div>
-              
-              <button 
-                onClick={handleRestart}
-                className="bg-red-600 hover:bg-red-500 text-white px-8 py-3 rounded uppercase font-bold tracking-widest transition-colors shadow-[0_0_20px_rgba(220,38,38,0.4)]"
-              >
-                Începe din nou
-              </button>
-            </div>
-          )}
 
           {isPlayerOnBreak && (
             <div className="absolute top-6 left-1/2 -translate-x-1/2 z-50 bg-yellow-500/90 text-yellow-950 px-6 py-2 rounded-full font-bold uppercase tracking-widest text-[10px] shadow-[0_0_30px_rgba(234,179,8,0.3)] backdrop-blur border border-yellow-400 flex items-center gap-2">

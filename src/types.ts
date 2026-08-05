@@ -1,5 +1,5 @@
 export type UnitType = 'police' | 'fire' | 'ambulance' | 'gendarmerie' | 'swat' | 'helicopter';
-export type IncidentType = 'crime' | 'fire' | 'medical';
+export type IncidentType = 'crime' | 'fire' | 'medical' | 'accident' | 'robbery' | 'explosion' | 'rescue';
 export type UnitState = 'idle' | 'moving' | 'on_scene' | 'routing' | 'transporting' | 'patrolling';
 export type WeatherType = 'clear' | 'rain' | 'storm' | 'snow';
 
@@ -57,6 +57,7 @@ export interface Incident {
   requiredUnits: UnitType[];
   assignedUnits: string[]; // unit IDs
   createdAt: number;
+  firstResponseAt?: number;
   primaryOperator?: string;
   reward: number;
   severity: 1 | 2 | 3;
@@ -104,6 +105,8 @@ export interface GameState {
   resolvedCountPerOperator: Record<string, number>;
   aiStatus?: string;
   incidentRate: number;
+  wavePhase: 'calm' | 'building' | 'wave' | 'decay';
+  waveTimer: number;
   suggestions: string[];
 }
 

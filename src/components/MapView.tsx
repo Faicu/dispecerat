@@ -2,7 +2,7 @@ import { MapContainer, TileLayer, Marker, Polyline, useMapEvents } from 'react-l
 import 'leaflet/dist/leaflet.css';
 import L from 'leaflet';
 import { GameState, UnitType, IncidentType } from '../types';
-import { useMemo, useState } from 'react';
+import { useMemo, useState, useEffect, useRef } from 'react';
 import { UNIT_THEME, UNIT_ICON_SVG, INCIDENT_ICON_SVG, SEVERITY_COLORS, RESOLVED_COLOR } from '../constants';
 
 // Fix Leaflet icons issue
@@ -167,6 +167,55 @@ function UnitMarker({ unit, isSelected, onSelect, gameState }: {
   );
 }
 
+const BOUNDS = { minLat: 44.39, maxLat: 44.49, minLng: 26.0, maxLng: 26.15 };
+
+function MiniMap({ gameState }: { gameState: GameState }) {
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+    const W = canvas.width, H = canvas.height;
+
+    const toX = (lng: number) => ((lng - BOUNDS.minLng) / (BOUNDS.maxLng - BOUNDS.minLng)) * W;
+    const toY = (lat: number) => (1 - (lat - BOUNDS.minLat) / (BOUNDS.maxLat - BOUNDS.minLat)) * H;
+
+    ctx.clearRect(0, 0, W, H);
+    ctx.fillStyle = '#0f172a';
+    ctx.fillRect(0, 0, W, H);
+
+    // Incidents
+    Object.values(gameState.incidents).forEach(inc => {
+      if (inc.resolved) return;
+      ctx.beginPath();
+      ctx.arc(toX(inc.location.lng), toY(inc.location.lat), 3, 0, Math.PI * 2);
+      ctx.fillStyle = inc.severity === 3 ? '#ef4444' : inc.severity === 2 ? '#f97316' : '#eab308';
+      ctx.fill();
+    });
+
+    // Units
+    Object.values(gameState.units).forEach(unit => {
+      const color = (UNIT_THEME as any)[unit.type]?.hex ?? '#64748b';
+      ctx.beginPath();
+      ctx.arc(toX(unit.location.lng), toY(unit.location.lat), 2, 0, Math.PI * 2);
+      ctx.fillStyle = color;
+      ctx.fill();
+    });
+  }, [gameState]);
+
+  return (
+    <div className="absolute bottom-4 left-4 z-20 rounded border border-slate-700 overflow-hidden shadow-xl" style={{ width: 140, height: 90 }}>
+      <canvas ref={canvasRef} width={140} height={90} className="block" />
+      <div className="absolute bottom-0 left-0 right-0 bg-black/60 px-1.5 py-0.5 flex justify-between">
+        <span className="text-[8px] text-slate-400 uppercase tracking-wider">Overview</span>
+        <span className="text-[8px] text-slate-500">{Object.keys(gameState.units).length}u · {Object.values(gameState.incidents).filter(i => !i.resolved).length}i</span>
+      </div>
+    </div>
+  );
+}
+
 export default function MapView({ gameState, selectedIncidentId, onSelectIncident, selectedUnitId, onSelectUnit, onMapClick }: MapViewProps) {
   // Center of Bucharest
   const center = { lat: 44.44, lng: 26.09 };
@@ -181,6 +230,7 @@ export default function MapView({ gameState, selectedIncidentId, onSelectInciden
   };
 
   return (
+    <>
     <MapContainer
       center={center}
       zoom={13}
@@ -277,5 +327,7 @@ export default function MapView({ gameState, selectedIncidentId, onSelectInciden
         />
       ))}
     </MapContainer>
+    <MiniMap gameState={gameState} />
+    </>
   );
 }

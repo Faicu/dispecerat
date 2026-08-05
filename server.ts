@@ -34,7 +34,7 @@ const gameState: GameState = savedGame ? savedGame.state : {
   incidents: {},
   budget: 150000,
   reputation: 100,
-  gameTime: Date.now(), // Start at 08:00 AM
+  gameTime: Date.now(),
   weather: 'clear',
   logs: [],
   operators: [],
@@ -45,6 +45,8 @@ const gameState: GameState = savedGame ? savedGame.state : {
   resolvedCountTotal: 0,
   resolvedCountPerOperator: {},
   incidentRate: 1,
+  wavePhase: 'calm',
+  waveTimer: Date.now(),
   suggestions: [],
 };
 
@@ -53,6 +55,14 @@ const gameState: GameState = savedGame ? savedGame.state : {
 gameState.stations = policeStations;
 gameState.hospitals = hospitals;
 gameState.fireStations = fireStations;
+
+// Clear any stale game-over state from previous sessions
+gameState.isGameOver = false;
+gameState.gameOverReason = undefined;
+gameState.operators = [];
+if (gameState.reputation <= 0) gameState.reputation = 100;
+if (!gameState.wavePhase) gameState.wavePhase = 'calm';
+if (!gameState.waveTimer) gameState.waveTimer = Date.now();
 
 let incidentIdCounter = savedGame ? savedGame.incidentIdCounter : 1;
 let unitIdCounter = savedGame ? savedGame.unitIdCounter : 1;
@@ -317,17 +327,23 @@ const tick = (io: Server) => {
 
   let stateChanged = false;
 
-  if (gameState.isGameOver) return; // Stop processing if game is over
-
   if (gameState.reputation <= 0) {
-    gameState.isGameOver = true;
-    gameState.gameOverReason = "Reputația a ajuns la 0%. Cetățenii și autoritățile și-au pierdut încrederea în capacitatea ta de a gestiona dispeceratul.";
-    io.emit("stateUpdate", gameState);
-    return;
+    gameState.reputation = 0;
   }
   
-  // Dynamic difficulty scaling based on resolved count
-  gameState.incidentRate = 1.0 + (gameState.resolvedCountTotal * 0.05);
+  // Wave-based incident rate
+  const elapsed = Date.now() - gameState.waveTimer;
+  const WAVE_DURATIONS: Record<string, number> = { calm: 90000, building: 40000, wave: 50000, decay: 30000 };
+  if (elapsed > WAVE_DURATIONS[gameState.wavePhase]) {
+    const transitions: Record<string, GameState['wavePhase']> = { calm: 'building', building: 'wave', wave: 'decay', decay: 'calm' };
+    gameState.wavePhase = transitions[gameState.wavePhase];
+    gameState.waveTimer = Date.now();
+    if (gameState.wavePhase === 'wave') addLog('⚡ Val de incidente — activitate ridicată!', 'warning');
+    if (gameState.wavePhase === 'calm') addLog('✅ Perioadă liniștită — situație sub control.', 'success');
+    stateChanged = true;
+  }
+  const WAVE_RATES: Record<string, number> = { calm: 0.0005, building: 0.0015, wave: 0.004, decay: 0.001 };
+  gameState.incidentRate = WAVE_RATES[gameState.wavePhase];
   
 
   // Time progresses: 1 tick = 6000ms in-game = 6 seconds in-game per tick (1 minute every 1 real second)
@@ -713,8 +729,8 @@ const tick = (io: Server) => {
     }
   });
 
-  // Randomly spawn new incidents (rate based on multiplier)
-  if (Math.random() < 0.002 * gameState.incidentRate && Object.keys(gameState.incidents).length < 15) {
+  // Randomly spawn new incidents based on wave rate
+  if (Math.random() < gameState.incidentRate && Object.keys(gameState.incidents).length < 15) {
     spawnIncident();
     stateChanged = true;
   }
@@ -806,12 +822,14 @@ async function startServer() {
     socket.on("restartGame", () => {
       gameState.isGameOver = false;
       gameState.gameOverReason = undefined;
-      gameState.reputation = 50;
+      gameState.reputation = 100;
       gameState.budget = 50000;
       gameState.resolvedCountTotal = 0;
       gameState.resolvedCountPerOperator = {};
       gameState.incidents = {};
-      gameState.incidentRate = 1.0;
+      gameState.incidentRate = 0.0005;
+      gameState.wavePhase = 'calm';
+      gameState.waveTimer = Date.now();
       
       // Respawn 2 incidents
       spawnIncident();
@@ -852,6 +870,9 @@ async function startServer() {
       if (unit && incident && (unit.state === 'idle' || unit.state === 'patrolling' || unit.state === 'moving' || unit.state === 'routing' || unit.state === 'transporting')) {
         if (!incident.primaryOperator) {
           incident.primaryOperator = operator;
+        }
+        if (!incident.firstResponseAt) {
+          incident.firstResponseAt = Date.now();
         }
 
         // Unassign from previous incident if any

@@ -57,9 +57,14 @@ export default function RightSidebar({ gameState, selectedIncidentId, onSelectIn
                 className={`p-3 ${theme.bg} border-l-4 ${theme.border} border-y border-r border-y-transparent border-r-transparent rounded-r cursor-pointer flex flex-col gap-1 transition-all ${isSelected ? 'border-y-slate-700 border-r-slate-700 shadow-lg' : 'hover:bg-slate-800'}`}
               >
                 <div className="flex justify-between text-[10px] uppercase font-bold tracking-wider">
-                  <span className={incident.resolved ? 'text-green-500' : theme.text}>{incident.id} - {incident.name}</span>
+                  <span className={incident.resolved ? 'text-green-500' : theme.text}>{incident.name}</span>
                   <span className={timeRemaining < 30000 && !incident.isResolving && !incident.resolved ? 'text-red-500 animate-pulse' : 'text-slate-400'}>{timeStr}</span>
                 </div>
+                {incident.firstResponseAt && (
+                  <div className="text-[9px] text-slate-500 font-mono">
+                    ⏱ Răspuns: {Math.floor((incident.firstResponseAt - incident.createdAt) / 1000)}s
+                  </div>
+                )}
                 <div className="text-[10px] text-slate-400 font-mono mb-1 truncate" title={incident.address || `${incident.location.lat.toFixed(4)}, ${incident.location.lng.toFixed(4)}`}>
                   <span aria-hidden="true">📍</span> {incident.address || `${incident.location.lat.toFixed(4)}, ${incident.location.lng.toFixed(4)}`}
                 </div>
