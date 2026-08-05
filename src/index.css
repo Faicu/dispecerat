@@ -1,5 +1,20 @@
 @import "tailwindcss";
 
+/* Dispatch-console design tokens: a dedicated typeface pairing (readable
+   UI sans + a true monospace for timers/telemetry) plus semantic accent
+   colors so status meaning (alert/warn/info/ok) isn't re-derived ad hoc
+   in every component. Existing slate/red/blue/etc. utility classes keep
+   working as-is; these are additive tokens for new/updated UI. */
+@theme {
+  --font-sans: 'Inter', ui-sans-serif, system-ui, sans-serif;
+  --font-mono: 'JetBrains Mono', ui-monospace, 'SFMono-Regular', monospace;
+
+  --color-alert: #ef4444;
+  --color-warn: #f59e0b;
+  --color-info: #38bdf8;
+  --color-ok: #10b981;
+}
+
 @layer utilities {
   @keyframes rain {
     0% { background-position: 0% 0%; }

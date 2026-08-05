@@ -1,17 +1,38 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { io, Socket } from 'socket.io-client';
-import { GameState, Player } from './types';
+import { GameState, UnitType } from './types';
 import MapView from './components/MapView';
 import TopNav from './components/TopNav';
 import LeftSidebar from './components/LeftSidebar';
 import RightSidebar from './components/RightSidebar';
 import BottomConsole from './components/BottomConsole';
-import { playClick, playDispatch, playIncident, playSuccess, playSiren, speak, playRadioChatter } from './audio';
+import { playClick, playDispatch, playIncident, playSuccess, playError, playSiren, speak, playRadioChatter } from './audio';
+import { UNIT_PRICES } from './constants';
 
 const socket: Socket = io();
 
+// Empty shell rendered until the server sends the first `stateUpdate` — kept
+// in sync with GameState's shape so no `as any` cast is needed.
+const EMPTY_GAME_STATE: GameState = {
+  units: {},
+  incidents: {},
+  budget: 0,
+  reputation: 100,
+  gameTime: 0,
+  weather: 'clear',
+  logs: [],
+  operators: [],
+  rentedOperators: [],
+  stations: [],
+  hospitals: [],
+  fireStations: [],
+  resolvedCountTotal: 0,
+  resolvedCountPerOperator: {},
+  incidentRate: 1,
+};
+
 export default function App() {
-  const [gameState, setGameState] = useState<GameState>({ units: {}, incidents: {} } as any);
+  const [gameState, setGameState] = useState<GameState>(EMPTY_GAME_STATE);
   const [selectedIncidentId, setSelectedIncidentId] = useState<string | null>(null);
   const [selectedUnitId, setSelectedUnitId] = useState<string | null>(null);
   const [playerName, setPlayerName] = useState('');
@@ -74,7 +95,11 @@ export default function App() {
     }
   };
 
-  const handlePurchase = (type: string) => {
+  const handlePurchase = (type: UnitType) => {
+    if (gameState.budget < UNIT_PRICES[type]) {
+      playError();
+      return;
+    }
     playClick();
     socket.emit('purchaseUnit', { type });
   };
@@ -117,7 +142,7 @@ export default function App() {
             Start Shift
           </button>
         </form>
-        <div className="fixed inset-0 pointer-events-none bg-[url('https://grainy-gradients.vercel.app/noise.svg')] opacity-[0.03] contrast-150"></div>
+        <div aria-hidden="true" className="fixed inset-0 pointer-events-none bg-[url('https://grainy-gradients.vercel.app/noise.svg')] opacity-[0.03] contrast-150"></div>
       </div>
     );
   }
@@ -129,7 +154,6 @@ export default function App() {
     const d = new Date(gameState.gameTime);
     const hour = d.getHours() + (d.getMinutes() / 60);
     
-    let brightness = 1;
     let color = 'rgba(0,0,0,0)'; // transparent
 
     if (hour < 6 || hour > 21) {
@@ -161,7 +185,7 @@ export default function App() {
 
   return (
     <div className="w-screen h-screen bg-slate-950 text-slate-300 font-sans flex flex-col overflow-hidden select-none relative">
-      <div className="absolute inset-0 pointer-events-none scanlines z-50 opacity-20 mix-blend-overlay"></div>
+      <div aria-hidden="true" className="absolute inset-0 pointer-events-none scanlines z-50 opacity-20 mix-blend-overlay"></div>
       <TopNav playerName={playerName} gameState={gameState} />
       
       <div className="flex-1 flex overflow-hidden">
@@ -205,7 +229,7 @@ export default function App() {
       />
 
       {/* Scanline / Grain Overlay for Game Feel */}
-      <div className="fixed inset-0 pointer-events-none bg-[url('https://grainy-gradients.vercel.app/noise.svg')] opacity-[0.03] contrast-150 z-50"></div>
+      <div aria-hidden="true" className="fixed inset-0 pointer-events-none bg-[url('https://grainy-gradients.vercel.app/noise.svg')] opacity-[0.03] contrast-150 z-50"></div>
     </div>
   );
 }

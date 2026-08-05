@@ -1,19 +1,15 @@
 import { useEffect, useState } from 'react';
 import { GameState } from '../types';
+import { formatGameTime } from '../utils';
+import { WEATHER_LABELS } from '../constants';
 
 export default function TopNav({ playerName, gameState }: { playerName: string, gameState: GameState }) {
   const [realTime, setRealTime] = useState(new Date().toLocaleTimeString());
-  
+
   useEffect(() => {
     const timer = setInterval(() => setRealTime(new Date().toLocaleTimeString()), 1000);
     return () => clearInterval(timer);
   }, []);
-
-  const formatGameTime = (timestamp: number) => {
-    if (!timestamp) return '08:00';
-    const d = new Date(timestamp);
-    return `${d.getHours().toString().padStart(2, '0')}:${d.getMinutes().toString().padStart(2, '0')}`;
-  };
 
   return (
     <div className="h-12 border-b border-slate-800 bg-slate-900/80 flex items-center justify-between px-4 z-20 relative">
@@ -60,7 +56,7 @@ export default function TopNav({ playerName, gameState }: { playerName: string, 
       <div className="flex items-center gap-8">
         <div className="flex flex-col items-end border-r border-slate-700 pr-8">
           <div className="text-xs font-mono text-sky-400 capitalize">
-            {gameState.weather === 'clear' ? 'Senin' : gameState.weather === 'rain' ? 'Ploaie' : gameState.weather === 'snow' ? 'Ninsoare' : 'Furtună'}
+            {WEATHER_LABELS[gameState.weather] || gameState.weather}
           </div>
           <div className="text-[10px] opacity-40 uppercase tracking-widest">Vremea</div>
         </div>

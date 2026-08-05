@@ -1,4 +1,6 @@
 import { GameState } from '../types';
+import { INCIDENT_THEME, INCIDENT_COUNTDOWN_MS } from '../constants';
+import { formatReward } from '../utils';
 
 interface RightSidebarProps {
   gameState: GameState;
@@ -21,24 +23,15 @@ export default function RightSidebar({ gameState, selectedIncidentId, onSelectIn
         <div className="flex-1 p-2 space-y-2 overflow-y-auto">
           {incidentsList.map(incident => {
             const isSelected = selectedIncidentId === incident.id;
-            let theme = { border: 'border-slate-600', bg: 'bg-slate-800/50', text: 'text-white' };
-            
-            if (incident.type === 'fire') {
-              theme.border = isSelected ? 'border-red-500' : 'border-red-800/50';
-              theme.bg = isSelected ? 'bg-red-900/20' : 'bg-slate-800/50';
-              theme.text = isSelected ? 'text-red-300' : 'text-red-400';
-            } else if (incident.type === 'crime') {
-              theme.border = isSelected ? 'border-blue-500' : 'border-blue-800/50';
-              theme.bg = isSelected ? 'bg-blue-900/20' : 'bg-slate-800/50';
-              theme.text = isSelected ? 'text-blue-300' : 'text-blue-400';
-            } else {
-              theme.border = isSelected ? 'border-orange-500' : 'border-orange-800/50';
-              theme.bg = isSelected ? 'bg-orange-900/20' : 'bg-slate-800/50';
-              theme.text = isSelected ? 'text-orange-300' : 'text-orange-400';
-            }
-            
+            const incidentTheme = INCIDENT_THEME[incident.type];
+            const theme = {
+              border: isSelected ? incidentTheme.selectedBorder : incidentTheme.border,
+              bg: isSelected ? incidentTheme.selectedBg : 'bg-slate-800/50',
+              text: isSelected ? incidentTheme.selectedText : incidentTheme.text,
+            };
+
             const timeElapsed = now - incident.createdAt;
-            const timeRemaining = Math.max(0, 180000 - timeElapsed);
+            const timeRemaining = Math.max(0, INCIDENT_COUNTDOWN_MS - timeElapsed);
             const mins = Math.floor(timeRemaining / 60000);
             const secs = Math.floor((timeRemaining % 60000) / 1000);
             const timeStr = incident.isResolving ? 'Soluționare...' : (incident.resolved ? 'Rezolvat' : `${mins}:${secs.toString().padStart(2, '0')} rămas`);
@@ -54,7 +47,7 @@ export default function RightSidebar({ gameState, selectedIncidentId, onSelectIn
                   <span className={timeRemaining < 30000 && !incident.isResolving && !incident.resolved ? 'text-red-500 animate-pulse' : 'text-slate-400'}>{timeStr}</span>
                 </div>
                 <div className="text-[10px] text-slate-400 font-mono mb-1 truncate" title={incident.address || `${incident.location.lat.toFixed(4)}, ${incident.location.lng.toFixed(4)}`}>
-                  📍 {incident.address || `${incident.location.lat.toFixed(4)}, ${incident.location.lng.toFixed(4)}`}
+                  <span aria-hidden="true">📍</span> {incident.address || `${incident.location.lat.toFixed(4)}, ${incident.location.lng.toFixed(4)}`}
                 </div>
                 {incident.isResolving && !incident.resolved && (
                   <div className="w-full bg-slate-950 h-1.5 mt-1 rounded-full overflow-hidden flex relative">
@@ -106,7 +99,7 @@ export default function RightSidebar({ gameState, selectedIncidentId, onSelectIn
                     })}
                   </div>
                   <div className="text-[10px] text-emerald-400 font-bold tracking-widest bg-emerald-900/20 px-1.5 py-0.5 rounded border border-emerald-800/50">
-                    +€{(incident.reward / 1000).toFixed(1).replace('.0', '')}k
+                    +€{formatReward(incident.reward)}
                   </div>
                 </div>
               </div>

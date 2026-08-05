@@ -1,8 +1,9 @@
-import { MapContainer, TileLayer, Marker, Popup, Polyline, useMapEvents } from 'react-leaflet';
+import { MapContainer, TileLayer, Marker, Polyline, useMapEvents } from 'react-leaflet';
 import 'leaflet/dist/leaflet.css';
 import L from 'leaflet';
-import { GameState } from '../types';
-import { useEffect, useState } from 'react';
+import { GameState, UnitType, IncidentType } from '../types';
+import { useMemo, useState } from 'react';
+import { UNIT_THEME, UNIT_ICON_SVG, INCIDENT_ICON_SVG, SEVERITY_COLORS, RESOLVED_COLOR } from '../constants';
 
 // Fix Leaflet icons issue
 delete (L.Icon.Default.prototype as any)._getIconUrl;
@@ -12,17 +13,11 @@ L.Icon.Default.mergeOptions({
   shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-shadow.png',
 });
 
-// Custom icons
-const getUnitIcon = (type: string, id: string, state: string, isSelected: boolean) => {
-  let color = '#334155'; // default/swat
-  let iconSvg = '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>';
-  
-  if (type === 'police') { color = '#2563eb'; iconSvg = '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>'; }
-  else if (type === 'fire') { color = '#dc2626'; iconSvg = '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8.5 14.5A2.5 2.5 0 0 0 11 12c0-1.38-.5-2-1-3-1.072-2.143-.224-4.054 2-6 .5 2.5 2 4.9 4 6.5 2 1.6 3 3.5 3 5.5a7 7 0 1 1-14 0c0-1.153.433-2.294 1-3a2.5 2.5 0 0 0 2.5 2.5z"/></svg>'; }
-  else if (type === 'ambulance') { color = '#10b981'; iconSvg = '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2v20"/><path d="M2 12h20"/></svg>'; }
-  else if (type === 'gendarmerie') { color = '#4f46e5'; iconSvg = '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg>'; }
-  else if (type === 'helicopter') { color = '#0ea5e9'; iconSvg = '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22v-3"/><path d="M10 22h4"/><path d="M2 6h20"/><path d="M12 6V3"/><path d="M10 6v5a1 1 0 0 0 1 1h2a1 1 0 0 0 1-1V6"/><path d="M12 12v6"/><path d="M6 12a1 1 0 0 0-1 1v2a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-2a1 1 0 0 0-1-1H6z"/></svg>'; }
-  
+// Custom icons — built from the shared UNIT_THEME/UNIT_ICON_SVG tables so
+// colors stay in sync with the sidebars instead of being redefined here.
+const getUnitIcon = (type: UnitType, id: string, state: string, isSelected: boolean) => {
+  const color = UNIT_THEME[type]?.hex ?? '#334155';
+  const iconSvg = UNIT_ICON_SVG[type] ?? UNIT_ICON_SVG.swat;
   const isMoving = state === 'moving' || state === 'routing' || state === 'transporting';
 
   return new L.DivIcon({
@@ -46,26 +41,13 @@ const getUnitIcon = (type: string, id: string, state: string, isSelected: boolea
   });
 };
 
-const getIncidentIcon = (type: string, isSelected: boolean, severity: number = 1, resolved: boolean = false) => {
-  const baseColor = type === 'crime' ? '#2563eb' : type === 'fire' ? '#dc2626' : '#f97316';
-  let color = baseColor;
-  let shadow = `0 0 15px rgba(220,38,38,0.8)`;
-  
-  if (resolved) {
-    color = '#10b981'; // emerald-500
-    shadow = '0 0 20px rgba(16,185,129,0.8)';
-  } else if (severity === 1) { color = '#3b82f6'; shadow = '0 0 10px rgba(59,130,246,0.6)'; }
-  else if (severity === 2) { color = '#eab308'; shadow = '0 0 15px rgba(234,179,8,0.8)'; }
-  else if (severity === 3) { color = '#dc2626'; shadow = '0 0 20px rgba(220,38,38,1)'; }
+const getIncidentIcon = (type: IncidentType, isSelected: boolean, severity: 1 | 2 | 3 = 1, resolved: boolean = false) => {
+  const { hex: color, shadow } = resolved ? RESOLVED_COLOR : SEVERITY_COLORS[severity];
 
   const size = isSelected ? 48 : (32 + severity * 4);
   const pulse = (isSelected || severity === 3 || resolved) ? 'animate-ping' : '';
-  
-  let iconSvg = '<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>';
-  if (resolved) iconSvg = '<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path><polyline points="22 4 12 14.01 9 11.01"></polyline></svg>';
-  else if (type === 'crime') iconSvg = '<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><path d="M12 8h.01"/></svg>';
-  else if (type === 'fire') iconSvg = '<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8.5 14.5A2.5 2.5 0 0 0 11 12c0-1.38-.5-2-1-3-1.072-2.143-.224-4.054 2-6 .5 2.5 2 4.9 4 6.5 2 1.6 3 3.5 3 5.5a7 7 0 1 1-14 0c0-1.153.433-2.294 1-3a2.5 2.5 0 0 0 2.5 2.5z"/></svg>';
-  else if (type === 'medical') iconSvg = '<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>';
+
+  const iconSvg = resolved ? INCIDENT_ICON_SVG.resolved : (INCIDENT_ICON_SVG[type] ?? INCIDENT_ICON_SVG.default);
 
   return new L.DivIcon({
     className: 'custom-icon',
@@ -100,6 +82,89 @@ function MapClickHandler({ onMapClick, addRipple }: { onMapClick: (lat: number, 
     }
   });
   return null;
+}
+
+// Memoized per-marker wrappers so the (relatively expensive) DivIcon HTML
+// strings are only rebuilt when this specific unit/incident actually changes,
+// instead of on every state tick for every marker on the map.
+function IncidentMarker({ incident, isSelected, onSelect }: {
+  incident: GameState['incidents'][string];
+  isSelected: boolean;
+  onSelect: (id: string | null) => void;
+}) {
+  const icon = useMemo(
+    () => getIncidentIcon(incident.type, isSelected, incident.severity, incident.resolved),
+    [incident.type, isSelected, incident.severity, incident.resolved]
+  );
+
+  return (
+    <Marker
+      position={[incident.location.lat, incident.location.lng]}
+      icon={icon}
+      eventHandlers={{
+        click: () => onSelect(isSelected ? null : incident.id),
+      }}
+    />
+  );
+}
+
+function UnitMarker({ unit, isSelected, onSelect, gameState }: {
+  unit: GameState['units'][string];
+  isSelected: boolean;
+  onSelect: (id: string | null) => void;
+  gameState: GameState;
+}) {
+  const icon = useMemo(
+    () => getUnitIcon(unit.type, unit.name.split(' ')[0], unit.state, isSelected),
+    [unit.type, unit.name, unit.state, isSelected]
+  );
+  const lineColor = UNIT_THEME[unit.type]?.hex ?? '#818cf8';
+
+  return (
+    <Marker
+      position={[unit.location.lat, unit.location.lng]}
+      icon={icon}
+      eventHandlers={{
+        click: () => onSelect(isSelected ? null : unit.id),
+      }}
+    >
+      {unit.route && unit.route.length > 0 && (
+        <Polyline
+          positions={[[unit.location.lat, unit.location.lng], ...unit.route.map(r => [r.lat, r.lng] as [number, number])]}
+          color={lineColor}
+          weight={unit.type === 'helicopter' ? 2 : 4}
+          dashArray={unit.type === 'helicopter' ? "4 8" : ""}
+          opacity={0.6}
+        />
+      )}
+      {unit.targetIncidentId && (!unit.route || unit.route.length === 0) && (
+        <Polyline
+          positions={[
+            [unit.location.lat, unit.location.lng],
+            [gameState.incidents[unit.targetIncidentId]?.location.lat || unit.location.lat,
+             gameState.incidents[unit.targetIncidentId]?.location.lng || unit.location.lng]
+          ]}
+          color={lineColor}
+          dashArray="4 8"
+          weight={2}
+          opacity={0.6}
+        />
+      )}
+      {unit.targetStationId && (!unit.route || unit.route.length === 0) && (
+        <Polyline
+          positions={[
+            [unit.location.lat, unit.location.lng],
+            [gameState.stations.find(s => s.id === unit.targetStationId)?.location.lat || unit.location.lat,
+             gameState.stations.find(s => s.id === unit.targetStationId)?.location.lng || unit.location.lng]
+          ]}
+          color={lineColor}
+          dashArray="4 8"
+          weight={2}
+          opacity={0.6}
+        />
+      )}
+    </Marker>
+  );
 }
 
 export default function MapView({ gameState, selectedIncidentId, onSelectIncident, selectedUnitId, onSelectUnit, onMapClick }: MapViewProps) {
@@ -194,66 +259,22 @@ export default function MapView({ gameState, selectedIncidentId, onSelectInciden
       ))}
 
       {Object.values(gameState.incidents).map((incident) => (
-        <Marker
+        <IncidentMarker
           key={incident.id}
-          position={[incident.location.lat, incident.location.lng]}
-          icon={getIncidentIcon(incident.type, selectedIncidentId === incident.id, incident.severity, incident.resolved)}
-          eventHandlers={{
-            click: () => {
-              onSelectIncident(incident.id === selectedIncidentId ? null : incident.id);
-            },
-          }}
-        >
-        </Marker>
+          incident={incident}
+          isSelected={selectedIncidentId === incident.id}
+          onSelect={onSelectIncident}
+        />
       ))}
 
       {Object.values(gameState.units).map((unit) => (
-        <Marker
+        <UnitMarker
           key={unit.id}
-          position={[unit.location.lat, unit.location.lng]}
-          icon={getUnitIcon(unit.type, unit.name.split(' ')[0], unit.state, selectedUnitId === unit.id)}
-          eventHandlers={{
-            click: () => {
-              onSelectUnit(unit.id === selectedUnitId ? null : unit.id);
-            },
-          }}
-        >
-          {unit.route && unit.route.length > 0 && (
-            <Polyline
-              positions={[[unit.location.lat, unit.location.lng], ...unit.route.map(r => [r.lat, r.lng] as [number, number])]}
-              color={unit.type === 'police' ? '#3b82f6' : unit.type === 'fire' ? '#ef4444' : unit.type === 'ambulance' ? '#10b981' : unit.type === 'helicopter' ? '#38bdf8' : '#818cf8'}
-              weight={unit.type === 'helicopter' ? 2 : 4}
-              dashArray={unit.type === 'helicopter' ? "4 8" : ""}
-              opacity={0.6}
-            />
-          )}
-          {unit.targetIncidentId && (!unit.route || unit.route.length === 0) && (
-            <Polyline
-              positions={[
-                [unit.location.lat, unit.location.lng],
-                [gameState.incidents[unit.targetIncidentId]?.location.lat || unit.location.lat, 
-                 gameState.incidents[unit.targetIncidentId]?.location.lng || unit.location.lng]
-              ]}
-              color={unit.type === 'police' ? '#3b82f6' : unit.type === 'fire' ? '#ef4444' : unit.type === 'helicopter' ? '#38bdf8' : '#10b981'}
-              dashArray="4 8"
-              weight={2}
-              opacity={0.6}
-            />
-          )}
-          {unit.targetStationId && (!unit.route || unit.route.length === 0) && (
-            <Polyline
-              positions={[
-                [unit.location.lat, unit.location.lng],
-                [gameState.stations.find(s => s.id === unit.targetStationId)?.location.lat || unit.location.lat, 
-                 gameState.stations.find(s => s.id === unit.targetStationId)?.location.lng || unit.location.lng]
-              ]}
-              color={unit.type === 'police' ? '#3b82f6' : unit.type === 'fire' ? '#ef4444' : unit.type === 'helicopter' ? '#38bdf8' : '#10b981'}
-              dashArray="4 8"
-              weight={2}
-              opacity={0.6}
-            />
-          )}
-        </Marker>
+          unit={unit}
+          isSelected={selectedUnitId === unit.id}
+          onSelect={onSelectUnit}
+          gameState={gameState}
+        />
       ))}
     </MapContainer>
   );
