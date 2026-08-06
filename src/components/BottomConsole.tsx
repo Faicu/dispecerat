@@ -17,6 +17,7 @@ interface BottomConsoleProps {
   onDispatch: (unitId: string) => void;
   onRefuel: (unitId: string) => void;
   onReturnToBase: (unitId: string) => void;
+  onGoToService?: (unitId: string) => void;
   onSelectIncident?: (id: string | null) => void;
   onSelectUnit?: (id: string | null) => void;
   onResolveComplication?: (incidentId: string, optionId?: string) => void;
@@ -31,6 +32,7 @@ export default function BottomConsole({
   onDispatch,
   onRefuel,
   onReturnToBase,
+  onGoToService,
   playerRoles,
   onSelectIncident,
   onSelectUnit,
@@ -185,6 +187,7 @@ export default function BottomConsole({
         gameState={gameState}
         onRefuel={onRefuel}
         onReturnToBase={onReturnToBase}
+        onGoToService={onGoToService}
         onSelectUnit={onSelectUnit}
         onSelectIncident={onSelectIncident}
         hideInlineClose={hideInlineClose}

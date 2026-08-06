@@ -8,6 +8,7 @@ interface UnitDetailsPanelProps {
   gameState: GameState;
   onRefuel: (unitId: string) => void;
   onReturnToBase: (unitId: string) => void;
+  onGoToService?: (unitId: string) => void;
   onSelectUnit?: (id: string | null) => void;
   onSelectIncident?: (id: string | null) => void;
   hideInlineClose?: boolean;
@@ -18,6 +19,7 @@ export default function UnitDetailsPanel({
   gameState,
   onRefuel,
   onReturnToBase,
+  onGoToService,
   onSelectUnit,
   onSelectIncident,
   hideInlineClose,
@@ -89,6 +91,15 @@ export default function UnitDetailsPanel({
           >
             Retrage la Bază
           </button>
+          {onGoToService && (
+            <button
+              onClick={() => onGoToService(selectedUnit.id)}
+              className="bg-amber-900/40 border border-amber-700/60 hover:bg-amber-800/60 hover:border-amber-500 text-amber-400 text-[10px] uppercase tracking-widest font-bold px-4 py-2 rounded transition-colors"
+              title="Trimite la service tehnic (45s mentenanță, realimentare completă)"
+            >
+              Service
+            </button>
+          )}
         </div>
       </div>
     </div>

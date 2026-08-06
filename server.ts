@@ -6,8 +6,8 @@ import { Server } from "socket.io";
 import { createServer as createViteServer } from "vite";
 import { GameState, Incident, Unit, Location, UnitType, IncidentType, OperatorRole, Operator, WeatherType } from "./src/types";
 import { loadGame, saveGame } from "./db";
-import { policeStations, hospitals, fireStations, incidentTypes } from "./server/data";
-import { getRandomVehicleSpec } from "./server/unitTypes";
+import { policeStations, hospitals, fireStations, serviceStations, incidentTypes } from "./server/data";
+import { getRandomVehicleSpec } from "./server/unitati/vehicule";
 
 const PORT = Number(process.env.PORT) || 3002;
 
@@ -43,6 +43,7 @@ const gameState: GameState = savedGame ? savedGame.state : {
   stations: policeStations,
   hospitals: hospitals,
   fireStations: fireStations,
+  serviceStations: serviceStations,
   resolvedCountTotal: 0,
   resolvedCountPerOperator: {},
   incidentRate: 1,
@@ -57,6 +58,7 @@ const gameState: GameState = savedGame ? savedGame.state : {
 gameState.stations = policeStations;
 gameState.hospitals = hospitals;
 gameState.fireStations = fireStations;
+gameState.serviceStations = serviceStations;
 
 // Clear any stale game-over state from previous sessions
 gameState.isGameOver = false;
@@ -193,7 +195,7 @@ if (!savedGame) {
 let lastPhoneCallTime = 0;
 let lastDisasterTime = Date.now() - 4 * 60 * 1000;
 let lastShiftTime = Date.now();
-const SHIFT_INTERVAL = 5 * 60 * 1000; // schimb de tură la fiecare 5 minute reale
+const SHIFT_INTERVAL = 2.5 * 60 * 1000; // 30 min joc = 2.5 min real (1h joc = 5 min real)
 const SHIFT_BREAK_DURATION = 60 * 1000; // 1 minut pauză
 
 const RADIO_MESSAGES: Record<string, string[]> = {
@@ -511,28 +513,38 @@ const tick = (io: Server) => {
       }
       stateChanged = true;
     } else if (unit.state === 'transporting' && unit.targetStationId) {
+      const isServiceStation = unit.targetStationId.startsWith('srv');
+      const arriveAtStation = () => {
+        if (isServiceStation) {
+          // 45s maintenance stop at service station
+          unit.state = 'on_break';
+          unit.shiftReturnAt = Date.now() + 45000;
+          unit.activity = 'Service tehnic — mentenanță.';
+          unit.fuel = 100;
+        } else {
+          unit.state = 'idle';
+          unit.fuel = 100;
+          unit.activity = undefined;
+        }
+        unit.targetStationId = null;
+      };
       if (unit.route && unit.route.length > 0) {
         const target = unit.route[0];
         const reached = moveUnitTowards(unit, target);
         if (reached) {
           unit.route.shift();
-          if (unit.route.length === 0) {
-             unit.state = 'idle';
-             unit.targetStationId = null;
-             unit.fuel = 100;
-          }
+          if (unit.route.length === 0) arriveAtStation();
         }
         stateChanged = true;
-      } else if (unit.type === 'helicopter') {
-        const allBases = [...gameState.stations, ...gameState.hospitals, ...gameState.fireStations];
+      } else {
+        const allBases = [
+          ...gameState.stations, ...gameState.hospitals,
+          ...gameState.fireStations, ...gameState.serviceStations,
+        ];
         const station = allBases.find(s => s.id === unit.targetStationId);
         if (station) {
           const reached = moveUnitTowards(unit, station.location);
-          if (reached) {
-            unit.state = 'idle';
-            unit.targetStationId = null;
-            unit.fuel = 100;
-          }
+          if (reached) arriveAtStation();
           stateChanged = true;
         }
       }
@@ -1396,6 +1408,34 @@ async function startServer() {
         }
         io.emit("stateUpdate", gameState);
       }
+    });
+
+    socket.on("goToService", ({ unitId }) => {
+      const unit = gameState.units[unitId];
+      if (!unit || (unit.state !== 'idle' && unit.state !== 'patrolling' && unit.state !== 'moving')) return;
+      if (unit.targetIncidentId) {
+        const inc = gameState.incidents[unit.targetIncidentId];
+        if (inc) inc.assignedUnits = inc.assignedUnits.filter(uid => uid !== unitId);
+      }
+      const nearestSrv = serviceStations.reduce((best, s) => {
+        const d = Math.pow(s.location.lat - unit.location.lat, 2) + Math.pow(s.location.lng - unit.location.lng, 2);
+        const bd = Math.pow(best.location.lat - unit.location.lat, 2) + Math.pow(best.location.lng - unit.location.lng, 2);
+        return d < bd ? s : best;
+      });
+      unit.state = 'transporting';
+      unit.targetIncidentId = null;
+      unit.patrolTarget = null;
+      unit.targetStationId = nearestSrv.id;
+      unit.activity = `Se deplasează la ${nearestSrv.name}.`;
+      unit.route = [];
+      if (unit.type !== 'helicopter') {
+        getRoute(unit.location, nearestSrv.location).then(route => {
+          if (unit.state === 'transporting' && unit.targetStationId === nearestSrv.id) {
+            unit.route = route;
+          }
+        });
+      }
+      io.emit("stateUpdate", gameState);
     });
 
     const prices: Record<UnitType, number> = {

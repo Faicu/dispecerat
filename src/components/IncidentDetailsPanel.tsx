@@ -4,6 +4,11 @@ import { UNIT_THEME } from '../constants';
 import { calculateETA, formatReward } from '../utils';
 import { X } from 'lucide-react';
 
+const TYPE_SHORT: Record<string, string> = {
+  police: 'POL', ambulance: 'AMB', fire: 'ISU',
+  gendarmerie: 'JAN', swat: 'SAS', helicopter: 'AVI',
+};
+
 interface IncidentDetailsPanelProps {
   incidentId: string;
   gameState: GameState;
@@ -126,7 +131,7 @@ export default function IncidentDetailsPanel({
                       title={titleText}
                       className={`text-[9px] px-1.5 py-0.5 rounded border uppercase transition-all ${badgeStyle}`}
                     >
-                      {req.slice(0, 3)}
+                      {TYPE_SHORT[req] ?? req.slice(0, 3).toUpperCase()}
                     </div>
                   );
                 })}
@@ -238,6 +243,11 @@ export default function IncidentDetailsPanel({
                   </span>
                 )}
               </div>
+              {unit.vehicleModel && (
+                <span className="text-[9px] text-slate-500 italic truncate w-full pl-3">
+                  {unit.vehicleModel}
+                </span>
+              )}
               {unit.state !== 'idle' && (
                 <span className="text-[9px] text-orange-400 font-mono uppercase truncate w-full pl-3 font-bold">
                   - {unit.state}

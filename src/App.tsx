@@ -226,6 +226,11 @@ export default function App() {
     socket.emit('returnToBase', { unitId });
   };
 
+  const handleGoToService = (unitId: string) => {
+    playClick();
+    socket.emit('goToService', { unitId });
+  };
+
   const handlePurchase = (type: UnitType) => {
     if (gameState.budget < UNIT_PRICES[type]) { playError(); return; }
     playClick();
@@ -444,6 +449,7 @@ export default function App() {
                 onDispatch={handleDispatch}
                 onRefuel={handleRefuel}
                 onReturnToBase={handleReturnToBase}
+                onGoToService={handleGoToService}
                 playerRoles={selectedRoles}
                 onSelectIncident={handleSelectIncident}
                 onSelectUnit={handleSelectUnit}

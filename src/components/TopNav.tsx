@@ -5,6 +5,10 @@ import { WEATHER_LABELS } from '../constants';
 import { CloudRain, CloudLightning, Snowflake, Sun, Settings, X, Volume2, VolumeX, RotateCcw, Users, Waves, Wind } from 'lucide-react';
 import { isMuted as audioIsMuted, setMuted as audioSetMuted } from '../audio';
 
+const ROLE_SHORT: Record<string, string> = {
+  police: 'POL', fire: 'ISU', ambulance: 'AMB', gendarmerie: 'JAN',
+};
+
 const WAVE_LABELS: Record<string, { label: string; color: string }> = {
   calm:     { label: 'Liniște',   color: 'text-emerald-400' },
   building: { label: 'Tensiune',  color: 'text-yellow-400'  },
@@ -250,7 +254,7 @@ export default function TopNav({
                           </div>
                           <div className="flex gap-1">
                             {(op.roles || []).map(r => (
-                              <span key={r} className="text-[8px] px-1.5 py-0.5 bg-slate-700 text-slate-300 rounded uppercase font-bold">{r.slice(0, 3)}</span>
+                              <span key={r} className="text-[8px] px-1.5 py-0.5 bg-slate-700 text-slate-300 rounded uppercase font-bold">{ROLE_SHORT[r] ?? r.slice(0, 3).toUpperCase()}</span>
                             ))}
                             {op.isOnBreak && <span className="text-[8px] px-1.5 py-0.5 bg-yellow-900/60 text-yellow-400 rounded font-bold">AI</span>}
                           </div>

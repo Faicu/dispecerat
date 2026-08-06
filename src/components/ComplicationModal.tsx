@@ -12,7 +12,7 @@ export const ComplicationModal: React.FC<ComplicationModalProps> = ({ incident, 
   if (!c || c.resolved) return null;
 
   return (
-    <div className="fixed inset-0 z-[99998] flex items-center justify-center bg-black/75 backdrop-blur-md p-3 pointer-events-auto">
+    <div className="fixed inset-0 z-[100001] flex items-center justify-center bg-black/75 backdrop-blur-md p-3 pointer-events-auto">
       <div className="bg-slate-900 border border-red-700/70 p-5 sm:p-6 rounded-2xl shadow-2xl max-w-md w-full relative z-10 animate-in fade-in duration-200">
 
         {/* Header */}

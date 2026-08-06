@@ -4,6 +4,11 @@ import { INCIDENT_THEME } from '../constants';
 import { formatReward, calculateETA } from '../utils';
 import { Filter, Navigation } from 'lucide-react';
 
+const TYPE_SHORT: Record<string, string> = {
+  police: 'POL', ambulance: 'AMB', fire: 'ISU',
+  gendarmerie: 'JAN', swat: 'SAS', helicopter: 'AVI',
+};
+
 interface RightSidebarProps {
   playerRoles: OperatorRole[];
   gameState: GameState;
@@ -255,7 +260,7 @@ export default function RightSidebar({ gameState, selectedIncidentId, onSelectIn
                           title={titleText}
                           className={`text-[9px] px-1.5 py-0.5 rounded border uppercase transition-all ${badgeStyle}`}
                         >
-                          {req.slice(0, 3)}
+                          {TYPE_SHORT[req] ?? req.slice(0, 3).toUpperCase()}
                         </div>
                       );
                     })}

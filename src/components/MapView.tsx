@@ -357,6 +357,24 @@ export default function MapView({ gameState, selectedIncidentId, onSelectInciden
         />
       ))}
 
+      {gameState.serviceStations?.map((srv) => (
+        <Marker
+          key={srv.id}
+          position={[srv.location.lat, srv.location.lng]}
+          icon={new L.DivIcon({
+            className: 'custom-icon',
+            html: `
+              <div class="flex flex-col items-center opacity-75 hover:opacity-100 transition-opacity">
+                <div class="w-6 h-6 bg-amber-950 border border-amber-500 rounded flex items-center justify-center text-amber-400 font-bold text-[9px] shadow-sm">SRV</div>
+                <div class="mt-1 text-[7px] bg-black/60 px-1 rounded text-amber-300 whitespace-nowrap">${srv.name}</div>
+              </div>
+            `,
+            iconSize: [24, 24],
+            iconAnchor: [12, 12],
+          })}
+        />
+      ))}
+
       {Object.values(gameState.incidents)
         .filter(i => hideOtherIncidents ? isMyIncident(i) : true)
         .map((incident) => (

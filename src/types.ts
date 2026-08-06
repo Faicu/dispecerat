@@ -46,6 +46,12 @@ export interface FireStation {
   location: Location;
 }
 
+export interface ServiceStation {
+  id: string;
+  name: string;
+  location: Location;
+}
+
 export interface Incident {
   id: string;
   name: string;
@@ -114,6 +120,7 @@ export interface GameState {
   stations: PoliceStation[];
   hospitals: Hospital[];
   fireStations: FireStation[];
+  serviceStations: ServiceStation[];
   resolvedCountTotal: number;
   resolvedCountPerOperator: Record<string, number>;
   aiStatus?: string;
