@@ -416,38 +416,38 @@ export default function App() {
             </div>
           )}
 
-          {/* Dispatch console — centered modal overlay above map, below nav bars */}
-          {showConsole && (
-            <>
-              {/* Backdrop — click to dismiss */}
-              <div
-                className="absolute inset-0 z-[200] bg-slate-950/50 backdrop-blur-[2px]"
-                onClick={closeConsole}
-              />
-              {/* Panel */}
-              <div className="absolute inset-0 z-[201] pointer-events-none flex items-center justify-center p-3 md:p-6">
-                <div
-                  className="pointer-events-auto w-full max-w-lg max-h-full bg-slate-900 border border-slate-700 rounded-xl shadow-2xl flex flex-col overflow-hidden"
-                  onClick={e => e.stopPropagation()}
-                >
-                  <BottomConsole
-                    gameState={gameState}
-                    selectedIncidentId={selectedIncidentId}
-                    selectedUnitId={selectedUnitId}
-                    onDispatch={handleDispatch}
-                    onRefuel={handleRefuel}
-                    onReturnToBase={handleReturnToBase}
-                    playerRoles={selectedRoles}
-                    onSelectIncident={handleSelectIncident}
-                    onSelectUnit={handleSelectUnit}
-                    onBackToMap={closeConsole}
-                  />
-                </div>
-              </div>
-            </>
-          )}
         </div>
       </div>
+
+      {/* Dispatch console — fixed overlay so it sits above Leaflet's stacking context.
+          Semi-transparent backdrop keeps the map dimly visible behind the panel. */}
+      {showConsole && (
+        <>
+          <div
+            className="fixed inset-0 z-[5000] bg-slate-950/65 backdrop-blur-sm"
+            onClick={closeConsole}
+          />
+          <div className="fixed inset-0 z-[5001] pointer-events-none flex items-center justify-center p-4">
+            <div
+              className="pointer-events-auto w-full max-w-lg max-h-[90vh] bg-slate-900 border border-slate-700 rounded-xl shadow-2xl flex flex-col overflow-hidden"
+              onClick={e => e.stopPropagation()}
+            >
+              <BottomConsole
+                gameState={gameState}
+                selectedIncidentId={selectedIncidentId}
+                selectedUnitId={selectedUnitId}
+                onDispatch={handleDispatch}
+                onRefuel={handleRefuel}
+                onReturnToBase={handleReturnToBase}
+                playerRoles={selectedRoles}
+                onSelectIncident={handleSelectIncident}
+                onSelectUnit={handleSelectUnit}
+                onBackToMap={closeConsole}
+              />
+            </div>
+          </div>
+        </>
+      )}
 
       {/* Mobile bottom navigation — z-[900] stays above any map overlay */}
       <div className="md:hidden flex bg-slate-900 border-t border-slate-800 text-[10px] font-bold uppercase tracking-wider h-16 shrink-0 pb-2 pt-1 z-[900] relative">
