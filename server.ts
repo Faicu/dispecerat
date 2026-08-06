@@ -269,22 +269,23 @@ const spawnIncident = () => {
   if (isPhoneCall) {
     callStatus = 'ringing';
     currentDialogueStep = 0;
-    callerDialogue = [
-      {
-        text: `Alo, 112! ${template.desc} Vă rog să veniți repede!`,
-        options: [
-          { text: "Liniștiți-vă, spuneți-mi adresa exactă.", nextStep: 1 },
-          { text: "Trimitem echipaje imediat.", nextStep: 'dispatch' }
-        ]
-      },
-      {
-        text: "Sunt undeva pe strada... ah, e multă panică! Vă rog grăbiți-vă!",
-        options: [
-          { text: "Am localizat apelul. Rămâneți la telefon până ajung colegii mei.", nextStep: 'dispatch' },
-          { text: "Încercați să vă îndepărtați de pericol. Echipajele sunt pe drum.", nextStep: 'dispatch' }
-        ]
-      }
-    ];
+    callerDialogue = template.dialogue && template.dialogue.length > 0
+      ? template.dialogue
+      : [
+          {
+            text: `Alo, 112! ${template.desc} Vă rog să veniți repede!`,
+            options: [
+              { text: 'Liniștiți-vă, spuneți-mi adresa exactă.', nextStep: 1 },
+              { text: 'Trimitem echipaje imediat.', nextStep: 'dispatch' as const }
+            ]
+          },
+          {
+            text: 'Sunt undeva pe strada... ah, e multă panică! Vă rog grăbiți-vă!',
+            options: [
+              { text: 'Am localizat apelul. Rămâneți la telefon până ajung colegii mei.', nextStep: 'dispatch' as const },
+            ]
+          }
+        ];
   }
 
   gameState.incidents[id] = {
@@ -306,6 +307,7 @@ const spawnIncident = () => {
     createdAt: Date.now(),
     reward: template.reward,
     severity: template.severity,
+    primaryAgency: template.primaryAgency,
     isPhoneCall,
     callStatus,
     callerDialogue,

@@ -1,5 +1,5 @@
 export type UnitType = 'police' | 'fire' | 'ambulance' | 'gendarmerie' | 'swat' | 'helicopter';
-export type IncidentType = 'crime' | 'fire' | 'medical' | 'accident' | 'robbery' | 'explosion' | 'rescue';
+export type IncidentType = 'crime' | 'fire' | 'medical' | 'accident' | 'robbery' | 'explosion' | 'rescue' | 'riot';
 export type UnitState = 'idle' | 'moving' | 'on_scene' | 'routing' | 'transporting' | 'patrolling';
 export type WeatherType = 'clear' | 'rain' | 'storm' | 'snow';
 
@@ -64,6 +64,7 @@ export interface Incident {
   reward: number;
   severity: number;
   escalated?: boolean;
+  primaryAgency?: 'police' | 'fire' | 'ambulance' | 'gendarmerie';
   isPhoneCall?: boolean;
   callStatus?: 'ringing' | 'answered' | 'completed';
   callerDialogue?: { text: string; options: { text: string; nextStep: number | 'dispatch' }[] }[];

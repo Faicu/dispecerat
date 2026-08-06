@@ -46,6 +46,7 @@ export const INCIDENT_THEME: Record<IncidentType, IncidentTheme> = {
   robbery:   { hex: '#7c3aed', border: 'border-violet-800/50', bg: 'bg-violet-900/20', text: 'text-violet-400', selectedBorder: 'border-violet-500', selectedBg: 'bg-violet-900/20', selectedText: 'text-violet-300' },
   explosion: { hex: '#ea580c', border: 'border-orange-700/50', bg: 'bg-orange-900/30', text: 'text-orange-300', selectedBorder: 'border-orange-400', selectedBg: 'bg-orange-900/30', selectedText: 'text-orange-200' },
   rescue:    { hex: '#0891b2', border: 'border-cyan-800/50',   bg: 'bg-cyan-900/20',   text: 'text-cyan-400',   selectedBorder: 'border-cyan-500',   selectedBg: 'bg-cyan-900/20',   selectedText: 'text-cyan-300' },
+  riot:      { hex: '#16a34a', border: 'border-green-800/50',  bg: 'bg-green-900/20',  text: 'text-green-400',  selectedBorder: 'border-green-500',  selectedBg: 'bg-green-900/20',  selectedText: 'text-green-300' },
 };
 
 // Unit purchase prices — mirrors the `prices` map in server.ts (server is the
@@ -119,6 +120,7 @@ export const INCIDENT_ICON_SVG: Record<string, string> = {
   explosion: '<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="currentColor" stroke="none"><path d="M7 2l2.3 5.5L2 9.3l5.5 2.3L5.3 17l4.5-3.3L12 21l2.2-7.3 4.5 3.3-2.2-5.4L22 9.3l-7.3-1.8L17 2l-5 3.5L7 2z"/></svg>',
   // Rescue: lifebuoy
   rescue:    '<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="currentColor" stroke="none"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8zm3.88-11.71L14 10.16V8h-4v2.16l-1.88-1.88-1.41 1.41L8.58 12l-1.88 1.88 1.41 1.41L10 13.42V16h4v-2.58l1.88 1.88 1.41-1.41L15.42 12l1.87-1.87-1.41-1.42z"/></svg>',
+  riot:      '<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="currentColor" stroke="none"><path d="M16 11c1.66 0 2.99-1.34 2.99-3S17.66 5 16 5c-1.66 0-3 1.34-3 3s1.34 3 3 3zm-8 0c1.66 0 2.99-1.34 2.99-3S9.66 5 8 5C6.34 5 5 6.34 5 8s1.34 3 3 3zm0 2c-2.33 0-7 1.17-7 3.5V19h14v-2.5c0-2.33-4.67-3.5-7-3.5zm8 0c-.29 0-.62.02-.97.05 1.16.84 1.97 1.97 1.97 3.45V19h6v-2.5c0-2.33-4.67-3.5-7-3.5z"/></svg>',
 };
 
 export const SEVERITY_COLORS: Record<number, { hex: string; shadow: string }> = {
