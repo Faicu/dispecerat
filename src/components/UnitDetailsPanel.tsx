@@ -61,8 +61,11 @@ export default function UnitDetailsPanel({
               "{selectedUnit.activity}"
             </div>
           )}
+          {selectedUnit.vehicleModel && (
+            <div className="text-[9px] text-sky-500 italic mb-1">{selectedUnit.vehicleModel}</div>
+          )}
           <div className="mt-auto text-[9px] text-slate-500 uppercase flex justify-between pt-2 border-t border-slate-800">
-            <span>Type: {selectedUnit.type}</span>
+            <span>{selectedUnit.state === 'on_break' ? '🕐 Schimb de tură' : `Type: ${selectedUnit.type}`}</span>
             <span>ID: {selectedUnit.id}</span>
           </div>
         </div>

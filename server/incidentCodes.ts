@@ -198,6 +198,88 @@ const policeIncidents: IncidentCode[] = [
       ]},
     ],
   },
+  // ── SAS-specific ───────────────────────────────────────────────────────────
+  {
+    type: 'crime', name: 'Detentor Înarmat — Locuință', primaryAgency: 'police', cod: 3,
+    desc: 'Persoană înarmată se baricadează în locuință proprie cu risc pentru familie.',
+    req: ['police', 'police', 'swat', 'ambulance'],
+    img: 'https://images.unsplash.com/photo-1596765793043-42e1cc714fb0?auto=format&fit=crop&w=300&q=80',
+    reward: 12000, severity: 4,
+    dialogue: [
+      { text: 'Vecina mea țipă de zece minute și am auzit o împușcătură! Soțul ei tot amenința că o să facă ceva...', options: [
+        { text: 'Rămâneți în casă, nu interveniți. Ne ocupăm noi.', nextStep: 1 },
+        { text: 'Echipele SAS sunt alertate. Localizăm adresa.', nextStep: 'dispatch' },
+      ]},
+      { text: 'Mai aud voci... ea plânge... el urlă ceva. E cu o pușcă, am văzut dimineața!', options: [
+        { text: 'Perfect, nu vă expuneți. Echipele ajung în câteva minute. Monitorizați de la fereastră.', nextStep: 'dispatch' },
+      ]},
+    ],
+  },
+  {
+    type: 'crime', name: 'Operațiune Sub Acoperire SAS', primaryAgency: 'police', cod: 4,
+    desc: 'Rețea de traficanți identificată. Operațiune de capturare necesită echipe specializate.',
+    req: ['swat', 'swat', 'police', 'police', 'police'],
+    img: 'https://images.unsplash.com/photo-1554224155-8d04cb21cd6c?auto=format&fit=crop&w=300&q=80',
+    reward: 22000, severity: 4,
+    dialogue: [
+      { text: 'Am informații sigure — șase persoane armate se află în depozitul de pe Strada Industriei. Acționați acum sau scapă!', options: [
+        { text: 'Sursa e verificată? Avem nevoie de confirmare înainte de asalt.', nextStep: 1 },
+        { text: 'Alertăm SAS imediat. Mențineți supravegherea.', nextStep: 'dispatch' },
+      ]},
+      { text: 'Da, agent sub acoperire confirmă. Sunt înarmați cu pistoale automate. Urgență maximă!', options: [
+        { text: 'SAS mobilizat. Blocăm toate ieșirile. Nu acționați înainte de ordinul nostru.', nextStep: 'dispatch' },
+      ]},
+    ],
+  },
+  // ── AVI-specific ───────────────────────────────────────────────────────────
+  {
+    type: 'rescue', name: 'Căutare Aeriană — Persoană Dispărută', primaryAgency: 'police', cod: 2,
+    desc: 'Copil dispărut în zona forestieră. Căutare terestră fără rezultat. Necesită recunoaștere aeriană.',
+    req: ['helicopter', 'police', 'police'],
+    img: 'https://images.unsplash.com/photo-1550989460-0adf9ea622e2?auto=format&fit=crop&w=300&q=80',
+    reward: 9000, severity: 3, isMoving: true,
+    dialogue: [
+      { text: 'Copilul meu de 7 ani a plecat să culeagă ciuperci și nu s-a mai întors! Sunt în Pădurea Băneasa, au trecut 4 ore!', options: [
+        { text: 'Cum era îmbrăcat? În ce direcție a plecat?', nextStep: 1 },
+        { text: 'Mobilizăm elicopterul și echipele terestre imediat.', nextStep: 'dispatch' },
+      ]},
+      { text: 'Tricou roșu, pantaloni albaștri... A zis că merge pe potecă spre lac. Vă rog găsiți-l!', options: [
+        { text: 'Elicopterul decolează. Rămâneți la punctul de întâlnire cu echipele noastre.', nextStep: 'dispatch' },
+      ]},
+    ],
+  },
+  {
+    type: 'medical', name: 'Transport Aerian Medical Urgent', primaryAgency: 'police', cod: 2,
+    desc: 'Pacient critic necesită transport rapid la spital. Condiții de trafic blochează ambulanța.',
+    req: ['helicopter', 'ambulance'],
+    img: 'https://images.unsplash.com/photo-1587311100595-6bc910a2eb75?auto=format&fit=crop&w=300&q=80',
+    reward: 8000, severity: 4,
+    dialogue: [
+      { text: 'Soțul meu a suferit un infarct masiv! Suntem blocați în trafic pe Șoseaua Colentina, ambulanța nu poate ajunge!', options: [
+        { text: 'Înțeleg situația. Este conștient și respiră?', nextStep: 1 },
+        { text: 'Trimitem elicopterul imediat. Dați-mi locația exactă.', nextStep: 'dispatch' },
+      ]},
+      { text: 'Respiră greu... buzele îi sunt vineții... nu poate vorbi! Vă rog repede!', options: [
+        { text: 'Elicopterul SMURD decolează acum. Faceți spațiu în jur pentru aterizare de urgență.', nextStep: 'dispatch' },
+      ]},
+    ],
+  },
+  {
+    type: 'crime', name: 'Supraveghere Aeriană Traficant', primaryAgency: 'police', cod: 3,
+    desc: 'Vehicul suspect urmărit de poliție se deplasează prin zone greu accesibile. Necesară urmărire aeriană.',
+    req: ['helicopter', 'police', 'police', 'police'],
+    img: 'https://images.unsplash.com/photo-1549315629-15d2a933d062?auto=format&fit=crop&w=300&q=80',
+    reward: 15000, severity: 3, isMoving: true,
+    dialogue: [
+      { text: 'Martor la o tranzacție de droguri! Un BMW negru fără numere a fugit prin parcul Herăstrău acum 2 minute spre lacuri!', options: [
+        { text: 'BMW negru, fără numere. Câte persoane?', nextStep: 1 },
+        { text: 'Alertăm echipajele și elicopterul de urmărire.', nextStep: 'dispatch' },
+      ]},
+      { text: 'Doi bărbați. Unul a aruncat un rucsac înainte să fugă!', options: [
+        { text: 'Elicopterul va localiza vehiculul. Nu îi urmăriți singuri — aceasta este treaba noastră.', nextStep: 'dispatch' },
+      ]},
+    ],
+  },
   {
     type: 'crime', name: 'Operațiune Antiteroristă', primaryAgency: 'police', cod: 5,
     desc: 'Informații privind un atac iminent. Dispozitiv suspect identificat în zonă aglomerată.',

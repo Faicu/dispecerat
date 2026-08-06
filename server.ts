@@ -7,6 +7,7 @@ import { createServer as createViteServer } from "vite";
 import { GameState, Incident, Unit, Location, UnitType, IncidentType, OperatorRole, Operator, WeatherType } from "./src/types";
 import { loadGame, saveGame } from "./db";
 import { policeStations, hospitals, fireStations, incidentTypes } from "./server/data";
+import { getRandomVehicleSpec } from "./server/unitTypes";
 
 const PORT = Number(process.env.PORT) || 3002;
 
@@ -116,98 +117,66 @@ const createInitialUnits = () => {
   const units: Record<string, any> = {};
   let uCounter = 1;
 
-  // 28 Police - 1 for each police station
-  policeStations.forEach((station, i) => {
-    units[`u${uCounter}`] = {
+  const mkUnit = (name: string, type: string, location: Location, stationId: string) => {
+    const spec = getRandomVehicleSpec(type);
+    return {
       id: `u${uCounter}`,
-      name: `POL-${i + 1}`,
-      type: 'police',
+      name,
+      type,
       state: 'idle',
-      location: { lat: station.location.lat + (Math.random() - 0.5) * 0.003, lng: station.location.lng + (Math.random() - 0.5) * 0.003 },
+      location,
       targetIncidentId: null,
       fuel: 100,
-      targetStationId: station.id,
+      targetStationId: stationId,
+      vehicleModel: spec.model,
+      speedMultiplier: spec.speedMultiplier,
+      fuelMultiplier: spec.fuelMultiplier,
+      resolutionBonus: spec.resolutionBonus,
     };
+  };
+
+  // 28 Police - 1 for each police station
+  policeStations.forEach((station, i) => {
+    units[`u${uCounter}`] = mkUnit(
+      `POL-${i + 1}`, 'police',
+      { lat: station.location.lat + (Math.random() - 0.5) * 0.003, lng: station.location.lng + (Math.random() - 0.5) * 0.003 },
+      station.id,
+    );
     uCounter++;
   });
 
-  // 8 Fire trucks
-  for (let i = 0; i < 8; i++) {
+  // 10 Fire trucks
+  for (let i = 0; i < 10; i++) {
     const st = fireStations[i % fireStations.length];
-    units[`u${uCounter}`] = {
-      id: `u${uCounter}`,
-      name: `ISU-${i + 1}`,
-      type: 'fire',
-      state: 'idle',
-      location: { ...st.location },
-      targetIncidentId: null,
-      fuel: 100,
-      targetStationId: st.id,
-    };
+    units[`u${uCounter}`] = mkUnit(`ISU-${i + 1}`, 'fire', { ...st.location }, st.id);
     uCounter++;
   }
 
-  // 12 Ambulances
-  for (let i = 0; i < 12; i++) {
+  // 14 Ambulances
+  for (let i = 0; i < 14; i++) {
     const st = hospitals[i % hospitals.length];
-    units[`u${uCounter}`] = {
-      id: `u${uCounter}`,
-      name: `AMB-${i + 1}`,
-      type: 'ambulance',
-      state: 'idle',
-      location: { ...st.location },
-      targetIncidentId: null,
-      fuel: 100,
-      targetStationId: st.id,
-    };
+    units[`u${uCounter}`] = mkUnit(`AMB-${i + 1}`, 'ambulance', { ...st.location }, st.id);
     uCounter++;
   }
 
-  // 6 Gendarmerie
-  for (let i = 0; i < 6; i++) {
-    const st = policeStations[(i * 4) % policeStations.length];
-    units[`u${uCounter}`] = {
-      id: `u${uCounter}`,
-      name: `JAN-${i + 1}`,
-      type: 'gendarmerie',
-      state: 'idle',
-      location: { ...st.location },
-      targetIncidentId: null,
-      fuel: 100,
-      targetStationId: st.id,
-    };
+  // 8 Gendarmerie
+  for (let i = 0; i < 8; i++) {
+    const st = policeStations[(i * 3) % policeStations.length];
+    units[`u${uCounter}`] = mkUnit(`JAN-${i + 1}`, 'gendarmerie', { ...st.location }, st.id);
     uCounter++;
   }
 
-  // 6 SWAT / Mascați
+  // 6 SAS / Mascați
   for (let i = 0; i < 6; i++) {
     const st = policeStations[(i * 4 + 2) % policeStations.length];
-    units[`u${uCounter}`] = {
-      id: `u${uCounter}`,
-      name: `SAS-${i + 1}`,
-      type: 'swat',
-      state: 'idle',
-      location: { ...st.location },
-      targetIncidentId: null,
-      fuel: 100,
-      targetStationId: st.id,
-    };
+    units[`u${uCounter}`] = mkUnit(`SAS-${i + 1}`, 'swat', { ...st.location }, st.id);
     uCounter++;
   }
 
-  // 3 Helicopters
-  for (let i = 0; i < 3; i++) {
+  // 4 Helicopters (AVI)
+  for (let i = 0; i < 4; i++) {
     const st = hospitals[i % hospitals.length];
-    units[`u${uCounter}`] = {
-      id: `u${uCounter}`,
-      name: `IGAV-${i + 1}`,
-      type: 'helicopter',
-      state: 'idle',
-      location: { ...st.location },
-      targetIncidentId: null,
-      fuel: 100,
-      targetStationId: st.id,
-    };
+    units[`u${uCounter}`] = mkUnit(`AVI-${i + 1}`, 'helicopter', { ...st.location }, st.id);
     uCounter++;
   }
 
@@ -222,7 +191,10 @@ if (!savedGame) {
 }
 
 let lastPhoneCallTime = 0;
-let lastDisasterTime = Date.now() - 4 * 60 * 1000; // allow first disaster after ~1 min
+let lastDisasterTime = Date.now() - 4 * 60 * 1000;
+let lastShiftTime = Date.now();
+const SHIFT_INTERVAL = 5 * 60 * 1000; // schimb de tură la fiecare 5 minute reale
+const SHIFT_BREAK_DURATION = 60 * 1000; // 1 minut pauză
 
 const RADIO_MESSAGES: Record<string, string[]> = {
   police: ['Zona securizată. Menținem perimetrul.', 'Subiect identificat. Continuăm intervenția.', 'Avem martori la fața locului.', 'Solicit backup imediat!'],
@@ -397,7 +369,8 @@ const moveUnitTowards = (unit: Unit, target: Location) => {
 
   if (unit.fuel <= 0) speedMult *= 0.2; // very slow if out of fuel
 
-  const speed = (unit.type === 'helicopter' ? UNIT_SPEED * 3 : UNIT_SPEED) * speedMult;
+  const baseSpeed = unit.type === 'helicopter' ? UNIT_SPEED * 3 : UNIT_SPEED;
+  const speed = baseSpeed * speedMult * (unit.speedMultiplier ?? 1);
   return moveLocationTowards(unit.location, target, speed);
 };
 
@@ -468,14 +441,25 @@ const tick = (io: Server) => {
         unit.fuel = Math.min(100, unit.fuel + 0.5);
         stateChanged = true;
       }
+    } else if (unit.state === 'on_break') {
+      if (unit.fuel < 100) {
+        unit.fuel = Math.min(100, unit.fuel + 0.3);
+        stateChanged = true;
+      }
+      if (unit.shiftReturnAt && Date.now() >= unit.shiftReturnAt) {
+        unit.state = 'idle';
+        unit.shiftReturnAt = undefined;
+        stateChanged = true;
+      }
+      return; // nu proceseaza mișcare pentru on_break
     } else if (unit.state === 'on_scene') {
       if (unit.fuel > 0) {
-        unit.fuel = Math.max(0, unit.fuel - 0.002);
+        unit.fuel = Math.max(0, unit.fuel - 0.002 * (unit.fuelMultiplier ?? 1));
         stateChanged = true;
       }
     } else {
       if (unit.fuel > 0) {
-        unit.fuel = Math.max(0, unit.fuel - 0.01);
+        unit.fuel = Math.max(0, unit.fuel - 0.01 * (unit.fuelMultiplier ?? 1));
         stateChanged = true;
       }
       if (unit.fuel <= 0 && unit.state === 'patrolling') {
@@ -706,57 +690,103 @@ const tick = (io: Server) => {
               stateChanged = true;
             }
           } else {
-            incident.resolutionProgress! += 2; // +2% per tick (10 ticks/sec => 5 seconds to resolve)
+            const unitBonus = incident.assignedUnits.reduce((sum, uid) => {
+              return sum + (gameState.units[uid]?.resolutionBonus ?? 0);
+            }, 0);
+            incident.resolutionProgress! += 2 + unitBonus;
             stateChanged = true;
 
-            
             // Random chance for complication
             if (incident.resolutionProgress! > 40 && incident.resolutionProgress! < 60 && !incident.escalated && Math.random() < 0.6) {
                incident.escalated = true;
-               
+
                const randChoice = Math.random();
-               if (randChoice < 0.25) {
+               if (randChoice < 0.125) {
                  const possibleBackup: UnitType[] = ['police', 'ambulance', 'fire'];
                  const extraType = possibleBackup[Math.floor(Math.random() * possibleBackup.length)];
                  incident.requiredUnits.push(extraType);
                  incident.complication = {
                    message: `Situația a escaladat! Avem nevoie urgent de un echipaj suplimentar de ${extraType.toUpperCase()}.`,
                    actionLabel: 'Confirmă',
-                   resolved: true 
+                   resolved: true
                  };
                  incident.isResolving = false;
                  incident.activities!.unshift(`Situația a escaladat! Mai e nevoie de 1 x ${extraType.toUpperCase()}.`);
                  addLog(`Escaladare la ${incident.name}: E nevoie de 1x ${extraType.toUpperCase()}`, 'warning');
-               } else if (randChoice < 0.5) {
+               } else if (randChoice < 0.25) {
                  incident.complication = {
-                   message: 'Este necesară autorizarea dispeceratului pentru proceduri speciale (negociatori/echipamente speciale).',
+                   message: 'Este necesară autorizarea dispeceratului pentru proceduri speciale (negociatori / echipamente speciale).',
                    actionLabel: 'Aprobă Procedura (€2500)',
                    resolved: false
                  };
                  incident.activities!.unshift('Se așteaptă decizia dispeceratului...');
-                 addLog(`Atenție! Este necesară decizia ta la ${incident.name}`, 'warning');
-               } else if (randChoice < 0.75) {
+                 addLog(`⚠️ Decizie manuală necesară la ${incident.name}`, 'warning');
+               } else if (randChoice < 0.375) {
                  incident.complication = {
                    message: 'Decizie tactică: Suspecții încearcă să fugă. Solicităm ordin.',
                    resolved: false,
                    options: [
-                     { id: 'opt1', label: 'Urmărire cu orice preț (-€1500 Daune)', cost: 1500, resultMsg: 'Suspecți prinși. Daune colaterale minore.', repImpact: 3 },
-                     { id: 'opt2', label: 'Securizare perimetru (Siguranță)', cost: 0, resultMsg: 'Un suspect a scăpat, dar nu sunt răniți.', repImpact: -2 }
+                     { id: 'opt1', label: 'Urmărire cu orice preț (-€1500 daune)', cost: 1500, resultMsg: 'Suspecți prinși. Daune colaterale minore.', repImpact: 3 },
+                     { id: 'opt2', label: 'Securizare perimetru (risc 0)', cost: 0, resultMsg: 'Un suspect a scăpat, dar nu sunt răniți.', repImpact: -2 }
                    ]
                  };
                  incident.activities!.unshift('Așteptăm ordin tactic...');
-                 addLog(`Atenție! Decizie tactică necesară la ${incident.name}`, 'warning');
-               } else {
+                 addLog(`⚠️ Decizie tactică necesară la ${incident.name}`, 'warning');
+               } else if (randChoice < 0.5) {
                  incident.complication = {
-                   message: 'Mass-media a ajuns la fața locului. Cum gestionăm situația?',
+                   message: 'Mass-media a ajuns la fața locului. Cum gestionăm comunicarea?',
                    resolved: false,
                    options: [
-                     { id: 'opt1', label: 'Desemnează un purtător de cuvânt (-€500)', cost: 500, resultMsg: 'Comunicare oficială reușită. Imagine publică îmbunătățită.', repImpact: 5 },
-                     { id: 'opt2', label: 'Blochează accesul presei (Risc)', cost: 0, resultMsg: 'Jurnaliștii au speculat negativ situația.', repImpact: -5 }
+                     { id: 'opt1', label: 'Purtător de cuvânt oficial (-€500)', cost: 500, resultMsg: 'Comunicare profesionistă. Reputație crescută.', repImpact: 5 },
+                     { id: 'opt2', label: 'Blochează accesul presei', cost: 0, resultMsg: 'Jurnaliștii au speculat negativ. Reputație scăzută.', repImpact: -5 }
                    ]
                  };
                  incident.activities!.unshift('Presa solicită declarații...');
-                 addLog(`Atenție! Mass-media prezentă la ${incident.name}`, 'warning');
+                 addLog(`⚠️ Mass-media prezentă la ${incident.name}`, 'warning');
+               } else if (randChoice < 0.625) {
+                 incident.complication = {
+                   message: 'Un echipaj raportează răniri în rândurile forțelor noastre! Cum procedăm?',
+                   resolved: false,
+                   options: [
+                     { id: 'opt1', label: 'Evacuare echipaj rănit (-€800)', cost: 800, resultMsg: 'Echipajul rănit a fost evacuat în siguranță.', repImpact: 4 },
+                     { id: 'opt2', label: 'Continuă misiunea (risc)', cost: 0, resultMsg: 'Misiunea continuă dar echipajul a suferit consecințe.', repImpact: -3 }
+                   ]
+                 };
+                 incident.activities!.unshift('Echipaj rănit la fața locului!');
+                 addLog(`⚠️ Echipaj rănit la ${incident.name}!`, 'error');
+               } else if (randChoice < 0.75) {
+                 incident.complication = {
+                   message: 'Dispozitiv suspect identificat la fața locului. Potențial explozibil. Evacuare sau neutralizare?',
+                   resolved: false,
+                   options: [
+                     { id: 'opt1', label: 'Evacuare și geniu militar (-€3000)', cost: 3000, resultMsg: 'Zona evacuată. Genistul a neutralizat dispozitivul.', repImpact: 6 },
+                     { id: 'opt2', label: 'Continuă fără evacuare (periculos)', cost: 0, resultMsg: 'Echipajele au riscat. Dispozitivul era fals, dar publicul e nervos.', repImpact: -4 }
+                   ]
+                 };
+                 incident.activities!.unshift('Dispozitiv suspect identificat!');
+                 addLog(`🚨 Dispozitiv suspect la ${incident.name}!`, 'error');
+               } else if (randChoice < 0.875) {
+                 incident.complication = {
+                   message: 'Civili refuză să evacueze zona de pericol. Intervenim forțat sau negociem?',
+                   resolved: false,
+                   options: [
+                     { id: 'opt1', label: 'Evacuare forțată (-€1000 + risc PR)', cost: 1000, resultMsg: 'Civilii au fost evacuați forțat. Situație rezolvată dar nemulțumiri.', repImpact: -2 },
+                     { id: 'opt2', label: 'Negociator pe teren (-€500)', cost: 500, resultMsg: 'Negociatorul a convins civilii să plece voluntar.', repImpact: 3 }
+                   ]
+                 };
+                 incident.activities!.unshift('Civili refuză evacuarea...');
+                 addLog(`⚠️ Civili necooperanți la ${incident.name}`, 'warning');
+               } else {
+                 incident.complication = {
+                   message: 'Echipamentul tehnic defectează la fața locului. Solicităm logistică suplimentară?',
+                   resolved: false,
+                   options: [
+                     { id: 'opt1', label: 'Logistică de urgență (-€2000)', cost: 2000, resultMsg: 'Echipamentul de rezervă a sosit. Misiunea continuă.', repImpact: 1 },
+                     { id: 'opt2', label: 'Improvizează cu ce există', cost: 0, resultMsg: 'Echipajul a improvizat. Rezolvarea e mai lentă.', repImpact: -1 }
+                   ]
+                 };
+                 incident.activities!.unshift('Defecțiune echipament tehnic!');
+                 addLog(`⚠️ Defecțiune echipament la ${incident.name}`, 'warning');
                }
             }
 
@@ -856,6 +886,99 @@ const tick = (io: Server) => {
       inc.callStatus = 'completed';
       addLog(`Apel 112 nepreluat la timp pentru ${inc.name} (Linia s-a închis)`, 'warning');
       stateChanged = true;
+    }
+  });
+
+  // ── Schimb de tură la fiecare SHIFT_INTERVAL ──────────────────────────────
+  const nowTs = Date.now();
+  if (nowTs - lastShiftTime > SHIFT_INTERVAL) {
+    lastShiftTime = nowTs;
+    const eligible = Object.values(gameState.units).filter(u =>
+      (u.state === 'idle' || u.state === 'patrolling') && !u.targetIncidentId
+    );
+    const breakCount = Math.floor(eligible.length * 0.75);
+    const toBreak = eligible.sort(() => Math.random() - 0.5).slice(0, breakCount);
+    toBreak.forEach(u => {
+      u.state = 'on_break';
+      u.shiftReturnAt = nowTs + SHIFT_BREAK_DURATION;
+      u.patrolTarget = null;
+      u.route = [];
+    });
+    if (toBreak.length > 0) {
+      addLog(`🔄 Schimb de tură — ${toBreak.length} echipaje se retrag la sediu (1 minut).`, 'info');
+      stateChanged = true;
+    }
+  }
+
+  // ── Auto-dispecerizare unități în apropiere (raza ~250m) ─────────────────
+  const AUTO_DISPATCH_RADIUS = 0.0025;
+  Object.values(gameState.units).forEach(unit => {
+    if (unit.state !== 'idle' && unit.state !== 'patrolling') return;
+    if (unit.targetIncidentId) return;
+    for (const incident of Object.values(gameState.incidents)) {
+      if (incident.resolved || incident.isPhoneCall) continue;
+      if (!incident.requiredUnits.includes(unit.type as UnitType)) continue;
+      const assignedOfType = incident.assignedUnits.filter(uid => gameState.units[uid]?.type === unit.type).length;
+      const requiredOfType = incident.requiredUnits.filter(t => t === unit.type).length;
+      if (assignedOfType >= requiredOfType) continue;
+      const dist = Math.sqrt(
+        Math.pow(unit.location.lat - incident.location.lat, 2) +
+        Math.pow(unit.location.lng - incident.location.lng, 2)
+      );
+      if (dist < AUTO_DISPATCH_RADIUS) {
+        unit.targetIncidentId = incident.id;
+        incident.assignedUnits.push(unit.id);
+        unit.state = 'moving';
+        unit.patrolTarget = null;
+        addLog(`📍 Auto-disp.: ${unit.name} → ${incident.name} (în apropiere)`, 'info');
+        stateChanged = true;
+        break;
+      }
+    }
+  });
+
+  // ── Escaladare incidente nerezolvate (crime/robbery → incident nou în zonă) ─
+  Object.values(gameState.incidents).forEach(incident => {
+    if (incident.resolved || incident.escalationSpawned) return;
+    if (!['crime', 'robbery'].includes(incident.type)) return;
+    const timeAlive = Date.now() - incident.createdAt;
+    if (timeAlive > 90000 && Math.random() < 0.0008) {
+      incident.escalationSpawned = true;
+      const escalTemplates = incidentTypes.filter(t =>
+        ['crime', 'robbery'].includes(t.type) && t.severity <= Math.min(3, incident.severity)
+      );
+      if (escalTemplates.length > 0) {
+        const tmpl = escalTemplates[Math.floor(Math.random() * escalTemplates.length)];
+        const eid = `i${incidentIdCounter++}`;
+        const nearbyLoc = {
+          lat: incident.location.lat + (Math.random() - 0.5) * 0.018,
+          lng: incident.location.lng + (Math.random() - 0.5) * 0.018,
+        };
+        gameState.incidents[eid] = {
+          id: eid,
+          name: `[ESCALADAT] ${tmpl.name}`,
+          type: tmpl.type,
+          location: nearbyLoc,
+          address: 'Se localizează...',
+          description: `Incident escaladat din zona ${incident.name}: ${tmpl.desc}`,
+          imageUrl: tmpl.img,
+          resolved: false,
+          isResolving: false,
+          resolutionProgress: 0,
+          activities: [`⚡ Escaladat din ${incident.name}! Intervenție imediată necesară!`],
+          requiredUnits: [...tmpl.req],
+          assignedUnits: [],
+          createdAt: Date.now(),
+          reward: tmpl.reward,
+          severity: Math.min(5, tmpl.severity),
+          primaryAgency: tmpl.primaryAgency,
+        };
+        getAddress(nearbyLoc.lat, nearbyLoc.lng).then(addr => {
+          if (gameState.incidents[eid]) gameState.incidents[eid].address = addr;
+        });
+        addLog(`⚡ Escaladat: ${incident.name} → incident nou ${tmpl.name}!`, 'warning');
+        stateChanged = true;
+      }
     }
   });
 
@@ -1290,7 +1413,7 @@ async function startServer() {
       fire: 'ISU',
       gendarmerie: 'JAN',
       swat: 'SAS',
-      helicopter: 'IGAV',
+      helicopter: 'AVI',
     };
 
     socket.on("purchaseUnit", ({ type }: { type: UnitType }) => {
@@ -1314,6 +1437,7 @@ async function startServer() {
         if (type === 'ambulance' || type === 'helicopter') spawnLoc = hospitals[0].location;
         if (type === 'fire') spawnLoc = fireStations[0].location;
 
+        const spec = getRandomVehicleSpec(type);
         gameState.units[id] = {
           id: id,
           name: `${names[type]}-${nextNum}`,
@@ -1322,6 +1446,10 @@ async function startServer() {
           location: { ...spawnLoc },
           targetIncidentId: null,
           fuel: 100,
+          vehicleModel: spec.model,
+          speedMultiplier: spec.speedMultiplier,
+          fuelMultiplier: spec.fuelMultiplier,
+          resolutionBonus: spec.resolutionBonus,
         };
         io.emit("stateUpdate", gameState);
       }

@@ -8,6 +8,7 @@ import RightSidebar from './components/RightSidebar';
 import BottomConsole from './components/BottomConsole';
 import JoinScreen from './components/JoinScreen';
 import { PhoneCallModal } from './components/PhoneCallModal';
+import { ComplicationModal } from './components/ComplicationModal';
 import { playClick, playDispatch, playIncidentByType, playSuccess, playError, playSiren, speak, playRadioChatter } from './audio';
 import { UNIT_PRICES } from './constants';
 import { FULL_HEIGHT_STYLE } from './config/mobile';
@@ -496,6 +497,21 @@ export default function App() {
           Consolă
         </button>
       </div>
+
+      {/* Complication (manual decision) modal — shown above phone modal */}
+      {isJoined && !isPlayerOnBreak && (() => {
+        const activeComplication = Object.values(gameState.incidents).find(i =>
+          !i.resolved &&
+          i.complication && !i.complication.resolved &&
+          (selectedRoles.length === 0 || (i.primaryAgency && selectedRoles.includes(i.primaryAgency as OperatorRole)))
+        );
+        return activeComplication ? (
+          <ComplicationModal
+            incident={activeComplication}
+            onResolve={(incidentId, optionId) => socket.emit('resolveComplication', { incidentId, optionId })}
+          />
+        ) : null;
+      })()}
 
       {/* Emergency call modal */}
       {isJoined && !isPlayerOnBreak && (

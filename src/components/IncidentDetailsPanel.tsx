@@ -30,7 +30,7 @@ export default function IncidentDetailsPanel({
   if (!incident) return null;
 
   return (
-    <div className="h-full w-full md:border-l border-slate-800 bg-slate-950 p-4 flex flex-col gap-4 z-20 relative overflow-y-auto pb-16">
+    <div className="h-full w-full md:border-l border-slate-800 bg-slate-950 p-4 flex flex-col gap-4 z-20 relative overflow-y-auto overflow-x-hidden">
       <div className="w-full flex flex-col gap-2 shrink-0">
         <div className="flex items-center gap-2 justify-between">
           <div className="flex items-center gap-2">

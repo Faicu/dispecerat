@@ -227,7 +227,7 @@ export default function LeftSidebar({
                             {unit.name}
                           </span>
                           <span className={`text-[8px] px-1 font-bold tracking-wider ${styles.badge} flex-shrink-0 rounded-sm`}>
-                            {isIdle ? (unit.activity ? 'PATROL' : 'FREE') : unit.state === 'transporting' ? 'TRANS' : unit.state.substring(0, 5).toUpperCase()}
+                            {unit.state === 'on_break' ? 'TURĂ' : isIdle ? (unit.activity ? 'PATROL' : 'FREE') : unit.state === 'transporting' ? 'TRANS' : unit.state.substring(0, 5).toUpperCase()}
                           </span>
                         </div>
                         <div className="w-full bg-slate-900 rounded-full h-1 mt-1.5 mb-0.5 overflow-hidden border border-slate-800">

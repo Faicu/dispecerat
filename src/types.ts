@@ -1,6 +1,6 @@
 export type UnitType = 'police' | 'fire' | 'ambulance' | 'gendarmerie' | 'swat' | 'helicopter';
 export type IncidentType = 'crime' | 'fire' | 'medical' | 'accident' | 'robbery' | 'explosion' | 'rescue' | 'riot';
-export type UnitState = 'idle' | 'moving' | 'on_scene' | 'routing' | 'transporting' | 'patrolling';
+export type UnitState = 'idle' | 'moving' | 'on_scene' | 'routing' | 'transporting' | 'patrolling' | 'on_break';
 export type WeatherType = 'clear' | 'rain' | 'storm' | 'snow';
 
 export interface Location {
@@ -20,7 +20,12 @@ export interface Unit {
   patrolTarget?: Location | null;
   activity?: string;
   fuel: number;
-  recalculatingRoute?: boolean; // 0-100
+  recalculatingRoute?: boolean;
+  vehicleModel?: string;
+  speedMultiplier?: number;
+  fuelMultiplier?: number;
+  resolutionBonus?: number;
+  shiftReturnAt?: number;
 }
 
 export interface PoliceStation {
@@ -64,6 +69,7 @@ export interface Incident {
   reward: number;
   severity: number;
   escalated?: boolean;
+  escalationSpawned?: boolean;
   primaryAgency?: 'police' | 'fire' | 'ambulance' | 'gendarmerie';
   isPhoneCall?: boolean;
   callStatus?: 'ringing' | 'answered' | 'completed';

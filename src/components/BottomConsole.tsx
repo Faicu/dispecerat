@@ -1,6 +1,11 @@
 import { GameState, OperatorRole } from '../types';
 import { calculateETA, formatReward } from '../utils';
 import { Command } from 'lucide-react';
+
+const TYPE_SHORT: Record<string, string> = {
+  police: 'POL', ambulance: 'AMB', fire: 'ISU',
+  gendarmerie: 'JAN', swat: 'SAS', helicopter: 'AVI',
+};
 import UnitDetailsPanel from './UnitDetailsPanel';
 import IncidentDetailsPanel from './IncidentDetailsPanel';
 
@@ -79,7 +84,7 @@ export default function BottomConsole({
       .sort((a, b) => b.severity - a.severity);
 
     return (
-      <div className="h-full w-full md:border-l border-slate-800 bg-slate-950 p-4 flex flex-col items-center z-20 relative overflow-y-auto pb-16">
+      <div className="h-full w-full md:border-l border-slate-800 bg-slate-950 p-4 flex flex-col items-center z-20 relative overflow-y-auto overflow-x-hidden">
         {onBackToMap && (
           <button
             onClick={onBackToMap}
@@ -156,7 +161,7 @@ export default function BottomConsole({
                           title={titleText}
                           className={`text-[8px] px-1.5 py-0.5 rounded border uppercase transition-all ${badgeStyle}`}
                         >
-                          {req.slice(0, 3)}
+                          {TYPE_SHORT[req] ?? req.slice(0, 3).toUpperCase()}
                         </div>
                       );
                     })}
