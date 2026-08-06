@@ -46,6 +46,7 @@ export default function App() {
   const [leftTab, setLeftTab] = useState<'units' | 'logs' | 'incidents'>('units');
   const [mobileView, setMobileView] = useState<'map' | 'units' | 'incidents' | 'console'>('map');
   const [isJoined, setIsJoined] = useState(false);
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [toasts, setToasts] = useState<{ id: number; msg: string; type: 'cod3' | 'wave' | 'success' }[]>([]);
 
   const addToast = (msg: string, type: 'cod3' | 'wave' | 'success') => {
@@ -358,8 +359,10 @@ export default function App() {
       )}
 
       <div className="flex-1 flex overflow-hidden relative">
-        {/* Left sidebar — units/incidents list */}
-        <div className={`absolute inset-0 z-30 md:relative md:w-80 lg:w-[22rem] shrink-0 md:z-0 ${mobileView === 'units' || mobileView === 'incidents' ? 'flex' : 'hidden md:flex'}`}>
+        {/* Left sidebar — collapsible on desktop, full-screen on mobile */}
+        <div className={`absolute inset-0 z-30 md:relative shrink-0 md:z-0 transition-all duration-200 overflow-hidden
+          ${sidebarCollapsed ? 'md:w-14' : 'md:w-80 lg:w-[22rem]'}
+          ${mobileView === 'units' || mobileView === 'incidents' ? 'flex' : 'hidden md:flex'}`}>
           <LeftSidebar
             gameState={gameState}
             selectedUnitId={selectedUnitId}
@@ -369,6 +372,8 @@ export default function App() {
             playerRoles={selectedRoles}
             activeTab={leftTab}
             onTabChange={setLeftTab}
+            isCollapsed={sidebarCollapsed}
+            onToggleCollapse={() => setSidebarCollapsed(v => !v)}
             incidentListContent={
               <RightSidebar
                 gameState={gameState}
