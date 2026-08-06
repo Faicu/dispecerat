@@ -11,6 +11,7 @@ interface IncidentDetailsPanelProps {
   onDispatch: (unitId: string) => void;
   onSelectIncident?: (id: string | null) => void;
   onSelectUnit?: (id: string | null) => void;
+  onResolveComplication?: (incidentId: string, optionId?: string) => void;
   hideInlineClose?: boolean;
 }
 
@@ -21,6 +22,7 @@ export default function IncidentDetailsPanel({
   onDispatch,
   onSelectIncident,
   onSelectUnit,
+  onResolveComplication,
   hideInlineClose,
 }: IncidentDetailsPanelProps) {
   const incident = gameState.incidents[incidentId];
@@ -139,6 +141,38 @@ export default function IncidentDetailsPanel({
                     <span className="opacity-50">&gt;</span> {act}
                   </div>
                 ))}
+              </div>
+            )}
+
+            {/* Complication — manual decision required */}
+            {incident.complication && !incident.complication.resolved && onResolveComplication && (
+              <div className="mt-2 p-3 bg-red-950/60 border border-red-700/60 rounded-lg flex flex-col gap-2">
+                <div className="flex items-center gap-2">
+                  <span className="w-2 h-2 rounded-full bg-red-500 animate-pulse shrink-0" />
+                  <span className="text-[10px] font-bold uppercase tracking-wide text-red-300">Decizie Manuală Necesară</span>
+                </div>
+                <div className="text-[11px] text-red-200 leading-snug">{incident.complication.message}</div>
+                {incident.complication.options ? (
+                  <div className="flex flex-col gap-1.5">
+                    {incident.complication.options.map(opt => (
+                      <button
+                        key={opt.id}
+                        onClick={() => onResolveComplication(incident.id, opt.id)}
+                        className="bg-red-900/60 hover:bg-red-800 border border-red-700 text-white text-[10px] py-1.5 px-3 rounded text-left flex justify-between items-center gap-2 transition-colors font-medium"
+                      >
+                        <span>{opt.label}</span>
+                        {opt.cost > 0 && <span className="text-red-300 font-bold shrink-0">-€{opt.cost.toLocaleString()}</span>}
+                      </button>
+                    ))}
+                  </div>
+                ) : (
+                  <button
+                    onClick={() => onResolveComplication(incident.id)}
+                    className="bg-red-800/80 hover:bg-red-700 text-white text-[10px] py-1.5 px-3 rounded uppercase font-bold tracking-wider transition-colors"
+                  >
+                    {incident.complication.actionLabel}
+                  </button>
+                )}
               </div>
             )}
 

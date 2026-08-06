@@ -397,27 +397,26 @@ export default function App() {
           {/* Inner vignette */}
           <div className="absolute inset-0 pointer-events-none shadow-[inset_0_0_100px_rgba(15,23,42,0.8)] z-10" />
 
-          {/* Break status — non-blocking floating pill over map */}
-          {isPlayerOnBreak && (
-            <div className="absolute top-3 left-1/2 -translate-x-1/2 z-[60] pointer-events-none flex justify-center w-full px-4">
-              <div className="pointer-events-auto flex items-center gap-2.5 bg-yellow-950/95 border border-yellow-700/60 backdrop-blur-md rounded-full px-4 py-2 shadow-lg shadow-yellow-950/60 max-w-xs">
-                <span className="w-2 h-2 rounded-full bg-yellow-400 animate-pulse shrink-0" />
-                <Coffee size={13} className="text-yellow-400 shrink-0" />
-                <span className="text-yellow-200 text-[10px] font-bold uppercase tracking-wide">
-                  Pauză · AI activ
-                </span>
-                <button
-                  onClick={() => socket.emit('toggleBreak')}
-                  className="flex items-center gap-1 px-2.5 py-1 bg-yellow-600 hover:bg-yellow-500 active:bg-yellow-400 rounded-full text-[9px] text-white font-bold uppercase transition-colors"
-                >
-                  <Play size={9} fill="currentColor" /> Reia
-                </button>
-              </div>
-            </div>
-          )}
 
         </div>
       </div>
+
+      {/* Break status — fixed so it's above Leaflet's stacking context (z-600 for markers) */}
+      {isPlayerOnBreak && (
+        <div className="fixed top-12 inset-x-0 z-[3000] pointer-events-none flex justify-center px-4">
+          <div className="pointer-events-auto flex items-center gap-2.5 bg-yellow-950/95 border border-yellow-700/60 backdrop-blur-md rounded-full px-4 py-2 shadow-lg shadow-yellow-950/60 max-w-xs">
+            <span className="w-2 h-2 rounded-full bg-yellow-400 animate-pulse shrink-0" />
+            <Coffee size={13} className="text-yellow-400 shrink-0" />
+            <span className="text-yellow-200 text-[10px] font-bold uppercase tracking-wide">Pauză · AI activ</span>
+            <button
+              onClick={() => socket.emit('toggleBreak')}
+              className="flex items-center gap-1 px-2.5 py-1 bg-yellow-600 hover:bg-yellow-500 active:bg-yellow-400 rounded-full text-[9px] text-white font-bold uppercase transition-colors"
+            >
+              <Play size={9} fill="currentColor" /> Reia
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* Dispatch console — fixed overlay so it sits above Leaflet's stacking context.
           Semi-transparent backdrop keeps the map dimly visible behind the panel. */}
@@ -442,6 +441,7 @@ export default function App() {
                 playerRoles={selectedRoles}
                 onSelectIncident={handleSelectIncident}
                 onSelectUnit={handleSelectUnit}
+                onResolveComplication={(incidentId, optionId) => socket.emit('resolveComplication', { incidentId, optionId })}
                 onBackToMap={closeConsole}
               />
             </div>

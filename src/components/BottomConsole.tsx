@@ -14,6 +14,7 @@ interface BottomConsoleProps {
   onReturnToBase: (unitId: string) => void;
   onSelectIncident?: (id: string | null) => void;
   onSelectUnit?: (id: string | null) => void;
+  onResolveComplication?: (incidentId: string, optionId?: string) => void;
   onBackToMap?: () => void;
   hideInlineClose?: boolean;
 }
@@ -28,6 +29,7 @@ export default function BottomConsole({
   playerRoles,
   onSelectIncident,
   onSelectUnit,
+  onResolveComplication,
   onBackToMap,
   hideInlineClose,
 }: BottomConsoleProps) {
@@ -195,6 +197,7 @@ export default function BottomConsole({
         onDispatch={onDispatch}
         onSelectIncident={onSelectIncident}
         onSelectUnit={onSelectUnit}
+        onResolveComplication={onResolveComplication}
         hideInlineClose={hideInlineClose}
       />
     );
